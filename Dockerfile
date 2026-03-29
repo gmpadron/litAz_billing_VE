@@ -21,7 +21,7 @@ COPY src/ src/
 COPY migration/src/ migration/src/
 
 # Forzar recompilación del binario (no de las deps)
-RUN touch src/main.rs && cargo build --release
+RUN touch src/main.rs migration/src/lib.rs && cargo build --release
 
 # ============================================================
 # Stage 2: Runtime
