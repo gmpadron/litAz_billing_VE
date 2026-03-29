@@ -1,0 +1,63 @@
+[workspace]
+members = [".", "migration"]
+resolver = "2"
+
+[package]
+name = "billing_core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Framework HTTP
+actix-web = "4"
+actix-rt = "2"
+actix-cors = "0.7"
+
+# ORM + DB
+sea-orm = { version = "1", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"] }
+
+# Migraciones (usadas en main para auto-migrate si se desea)
+migration = { path = "migration" }
+
+# Serialización
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Validación
+validator = { version = "0.20", features = ["derive"] }
+
+# Precisión numérica (obligatorio para todo cálculo monetario)
+rust_decimal = { version = "1", features = ["serde-with-str"] }
+rust_decimal_macros = "1"
+
+# Generación PDF
+genpdf = "0.2"
+
+# Generación XML (retenciones IVA SENIAT)
+quick-xml = { version = "0.37", features = ["serialize"] }
+
+# Autenticación JWT (validación de tokens del servicio NestJS)
+jsonwebtoken = "9"
+
+# Manejo de errores
+thiserror = "2"
+anyhow = "1"
+
+# Variables de entorno
+dotenvy = "0.15"
+
+# Logging
+env_logger = "0.11"
+log = "0.4"
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Fecha/hora
+chrono = { version = "0.4", features = ["serde"] }
+
+# Async
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+actix-rt = "2"
