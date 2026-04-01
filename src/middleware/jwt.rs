@@ -89,13 +89,21 @@ pub fn validate_token(token: &str, config: &JwtConfig) -> Result<TokenData<JwtCl
     })
 }
 
-/// Extrae el token Bearer del header Authorization.
+/// Extrae el token JWT del header Authorization (Bearer) o del cookie accessToken.
+/// Orden de prioridad: header Authorization primero, luego cookie (igual que el API service NestJS).
 pub fn extract_bearer_token(req: &actix_web::HttpRequest) -> Option<String> {
-    req.headers()
+    // 1. Intentar desde el header Authorization: Bearer <token>
+    if let Some(token) = req.headers()
         .get("Authorization")
         .and_then(|v| v.to_str().ok())
         .filter(|h| h.starts_with("Bearer "))
         .map(|h| h[7..].to_string())
+    {
+        return Some(token);
+    }
+
+    // 2. Fallback: leer desde el cookie accessToken (enviado por el frontend via credentials: 'include')
+    req.cookie("accessToken").map(|c| c.value().to_string())
 }
 
 #[derive(Debug, thiserror::Error)]
