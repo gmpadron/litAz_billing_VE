@@ -258,26 +258,26 @@ impl actix_web::FromRequest for AuthenticatedUser {
 // Guards de autorización por rol
 // =============================================================================
 
-/// Guard que verifica que el usuario tenga rol `admin` o `accountant`.
+/// Guard que verifica que el usuario tenga rol `ADMIN`, `ACCOUNTANT` o `INFRA`.
 /// Se usa para endpoints de escritura fiscal.
 pub fn require_accountant(user: &AuthenticatedUser) -> Result<(), crate::errors::AppError> {
-    if user.has_any_role(&["admin", "accountant"]) {
+    if user.has_any_role(&["ADMIN", "ACCOUNTANT", "INFRA"]) {
         Ok(())
     } else {
         Err(crate::errors::AppError::Forbidden(
-            "Acceso denegado. Se requiere rol 'admin' o 'accountant'.".to_string(),
+            "Acceso denegado. Se requiere rol 'ADMIN' o 'ACCOUNTANT'.".to_string(),
         ))
     }
 }
 
-/// Guard que verifica que el usuario tenga rol `admin`.
+/// Guard que verifica que el usuario tenga rol `ADMIN` o `INFRA`.
 /// Se usa para endpoints de configuración.
 pub fn require_admin(user: &AuthenticatedUser) -> Result<(), crate::errors::AppError> {
-    if user.has_role("admin") {
+    if user.has_any_role(&["ADMIN", "INFRA"]) {
         Ok(())
     } else {
         Err(crate::errors::AppError::Forbidden(
-            "Acceso denegado. Se requiere rol 'admin'.".to_string(),
+            "Acceso denegado. Se requiere rol 'ADMIN'.".to_string(),
         ))
     }
 }
