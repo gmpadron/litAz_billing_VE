@@ -36,6 +36,13 @@ impl MigrationTrait for Migration {
         )
         .await?;
 
+        // Normalizar filas existentes: cualquier status distinto de 'Emitida'
+        // (ej: 'Anulada') se convierte a 'Emitida' antes de agregar el constraint.
+        db.execute_unprepared(
+            "UPDATE invoices SET status = 'Emitida' WHERE status != 'Emitida'",
+        )
+        .await?;
+
         db.execute_unprepared(
             "ALTER TABLE invoices ADD CONSTRAINT chk_invoice_status \
              CHECK (status IN ('Emitida'))",
@@ -54,6 +61,11 @@ impl MigrationTrait for Migration {
         .await?;
 
         db.execute_unprepared(
+            "UPDATE credit_notes SET status = 'Emitida' WHERE status != 'Emitida'",
+        )
+        .await?;
+
+        db.execute_unprepared(
             "ALTER TABLE credit_notes ADD CONSTRAINT chk_credit_note_status \
              CHECK (status IN ('Emitida'))",
         )
@@ -62,6 +74,11 @@ impl MigrationTrait for Migration {
         // ── debit_notes ───────────────────────────────────────────────────────
         db.execute_unprepared(
             "ALTER TABLE debit_notes DROP CONSTRAINT IF EXISTS chk_debit_note_status",
+        )
+        .await?;
+
+        db.execute_unprepared(
+            "UPDATE debit_notes SET status = 'Emitida' WHERE status != 'Emitida'",
         )
         .await?;
 
@@ -76,6 +93,12 @@ impl MigrationTrait for Migration {
         // 'Anulada' is removed — a delivery note is never voided.
         db.execute_unprepared(
             "ALTER TABLE delivery_notes DROP CONSTRAINT IF EXISTS chk_delivery_note_status",
+        )
+        .await?;
+
+        db.execute_unprepared(
+            "UPDATE delivery_notes SET status = 'Emitida' \
+             WHERE status NOT IN ('Emitida', 'Entregada')",
         )
         .await?;
 
