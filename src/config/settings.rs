@@ -44,12 +44,12 @@ impl Settings {
         // Un secreto JWT corto permite ataques de fuerza bruta sobre el HMAC-SHA256.
         // 32 caracteres = 256 bits mínimo, equivalente a la longitud del hash SHA-256.
         if jwt_secret.len() < 32 {
-            panic!(
-                "JWT_SECRET debe tener al menos 32 caracteres (tiene {}). \
-                 Use un secreto generado aleatoriamente, por ejemplo: \
-                 openssl rand -hex 32",
+            eprintln!(
+                "FATAL: JWT_SECRET debe tener al menos 32 caracteres (tiene {}). \
+                 Configura un secreto seguro en las variables de entorno.",
                 jwt_secret.len()
             );
+            return Err(std::env::VarError::NotPresent);
         }
 
         Ok(Self {
