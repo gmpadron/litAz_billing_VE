@@ -154,7 +154,7 @@ pub async fn create_delivery_note(
             }
         }
     } else {
-        let cid = create_client_stub(db, &dto.recipient_name, dto.recipient_rif.as_deref(), user_id).await?;
+        let cid = create_client_stub(db, &dto.recipient_name, dto.recipient_rif.as_deref(), user_id, company_profile_id).await?;
         (None, cid)
     };
 
