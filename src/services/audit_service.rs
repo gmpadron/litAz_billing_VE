@@ -69,9 +69,11 @@ pub async fn log(
     action: AuditAction,
     entity: AuditEntity,
     entity_id: Uuid,
+    company_profile_id: Option<Uuid>,
     metadata: Option<serde_json::Value>,
 ) {
-    let result = write_log(db, user_id, action, entity, entity_id, metadata).await;
+    let result =
+        write_log(db, user_id, action, entity, entity_id, company_profile_id, metadata).await;
     if let Err(e) = result {
         log::error!("Error escribiendo en audit_logs: {}", e);
     }
@@ -83,6 +85,7 @@ async fn write_log(
     action: AuditAction,
     entity: AuditEntity,
     entity_id: Uuid,
+    company_profile_id: Option<Uuid>,
     metadata: Option<serde_json::Value>,
 ) -> Result<(), AppError> {
     let log_entry = audit_logs::ActiveModel {
@@ -93,6 +96,7 @@ async fn write_log(
         entity_id: Set(entity_id),
         changes: Set(None),
         metadata: Set(metadata),
+        company_profile_id: Set(company_profile_id),
         created_at: Set(Utc::now().into()),
     };
     log_entry.insert(db).await?;

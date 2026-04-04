@@ -15,7 +15,8 @@ use actix_cors::Cors;
 use actix_web::{App, HttpResponse, HttpServer, web};
 use config::Settings;
 use log::info;
-use middleware::{JwtConfig, JwtMiddleware};
+use middleware::{CompanyMiddleware, JwtConfig, JwtMiddleware};
+use std::sync::Arc;
 use migration::{Migrator, MigratorTrait};
 
 #[actix_web::main]
@@ -54,6 +55,7 @@ async fn main() -> anyhow::Result<()> {
         audience: settings.jwt_audience.clone(),
     };
     let cors_origins = settings.cors_origins.clone();
+    let db_arc = Arc::new(db.clone());
 
     HttpServer::new(move || {
         // Configurar CORS
@@ -62,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
         App::new()
             .wrap(cors)
             .wrap(JwtMiddleware::new(jwt_config.clone()))
+            .wrap(CompanyMiddleware::new(db_arc.clone()))
             .app_data(web::Data::new(db.clone()))
             // Payload JSON max 256 KB (protección contra payloads gigantes)
             .app_data(web::JsonConfig::default().limit(262_144))
@@ -94,6 +97,7 @@ fn build_cors(origins: &[String]) -> Cors {
             actix_web::http::header::ACCEPT,
             actix_web::http::header::HeaderName::from_static("x-user-id"),
             actix_web::http::header::HeaderName::from_static("x-device-fingerprint"),
+            actix_web::http::header::HeaderName::from_static("x-company-id"),
         ])
         .max_age(600);
 

@@ -1,26 +1,10 @@
 //! Funciones compartidas para los handlers de la API.
 
 use actix_web::HttpMessage;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
-use crate::entities::company_profiles;
 use crate::errors::AppError;
 use crate::middleware::jwt::JwtClaims;
-
-/// Obtiene el company_profile_id del primer perfil activo.
-pub async fn get_active_company_id(db: &DatabaseConnection) -> Result<Uuid, AppError> {
-    let company = company_profiles::Entity::find()
-        .filter(company_profiles::Column::IsActive.eq(true))
-        .one(db)
-        .await?
-        .ok_or_else(|| {
-            AppError::BadRequest(
-                "No hay perfil de empresa activo. Ejecute el seeder o cree uno.".to_string(),
-            )
-        })?;
-    Ok(company.id)
-}
 
 /// Extrae el user_id del JWT validado (claims en extensions).
 ///

@@ -21,11 +21,28 @@ pub struct Model {
     pub changes: Option<Json>,
     /// Additional context: IP address, user agent, etc.
     pub metadata: Option<Json>,
+    /// Empresa a la que pertenece el evento (nullable para registros históricos)
+    pub company_profile_id: Option<Uuid>,
     /// No updated_at — audit records are immutable
     pub created_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::company_profiles::Entity",
+        from = "Column::CompanyProfileId",
+        to = "super::company_profiles::Column::Id",
+        on_update = "NoAction",
+        on_delete = "Restrict"
+    )]
+    CompanyProfile,
+}
+
+impl Related<super::company_profiles::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CompanyProfile.def()
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}

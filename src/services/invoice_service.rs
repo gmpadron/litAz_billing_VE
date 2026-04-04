@@ -338,6 +338,7 @@ pub async fn create_invoice(
         AuditAction::Create,
         AuditEntity::Invoice,
         id,
+        Some(company_profile_id),
         None,
     )
     .await;
@@ -453,8 +454,10 @@ async fn resolve_client_id<C: ConnectionTrait>(
 pub async fn get_invoice(
     db: &DatabaseConnection,
     id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<InvoiceResponse, AppError> {
     let invoice = invoices::Entity::find_by_id(id)
+        .filter(invoices::Column::CompanyProfileId.eq(company_profile_id))
         .one(db)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Factura con ID {} no encontrada", id)))?;
@@ -525,11 +528,14 @@ pub async fn get_invoice(
 pub async fn list_invoices(
     db: &DatabaseConnection,
     filters: InvoiceFilters,
+    company_profile_id: Uuid,
 ) -> Result<PaginatedResponse<InvoiceListResponse>, AppError> {
     let page = filters.page.unwrap_or(1);
     let per_page = filters.per_page.unwrap_or(25);
 
-    let mut query = invoices::Entity::find().order_by_desc(invoices::Column::CreatedAt);
+    let mut query = invoices::Entity::find()
+        .filter(invoices::Column::CompanyProfileId.eq(company_profile_id))
+        .order_by_desc(invoices::Column::CreatedAt);
 
     if let Some(status) = &filters.status {
         query = query.filter(invoices::Column::Status.eq(status.as_str()));

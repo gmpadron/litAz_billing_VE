@@ -9,7 +9,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::errors::AppError;
-use crate::middleware::AuthenticatedUser;
+use crate::middleware::{ActiveCompanyId, AuthenticatedUser};
 use crate::services::{
     company_service,
     export_service::{
@@ -51,6 +51,7 @@ pub struct BookExportQuery {
 /// Descarga el PDF de una factura.
 async fn get_invoice_pdf(
     _user: AuthenticatedUser,
+    company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
@@ -61,15 +62,15 @@ async fn get_invoice_pdf(
 
     let id = path.into_inner();
 
-    let invoice = invoice_service::get_invoice(&db, id).await?;
-    let company = company_service::get_company(&db).await?;
+    let invoice = invoice_service::get_invoice(&db, id, company.0).await?;
+    let company_profile = company_service::get_company_by_id(&db, company.0).await?;
 
     let company_header = CompanyHeader {
-        business_name: company.business_name.clone(),
-        trade_name: company.trade_name.clone(),
-        rif: company.rif.clone(),
-        fiscal_address: company.fiscal_address.clone(),
-        phone: company.phone.clone(),
+        business_name: company_profile.business_name.clone(),
+        trade_name: company_profile.trade_name.clone(),
+        rif: company_profile.rif.clone(),
+        fiscal_address: company_profile.fiscal_address.clone(),
+        phone: company_profile.phone.clone(),
     };
 
     let items: Vec<PdfLineItem> = invoice
@@ -139,6 +140,7 @@ async fn get_invoice_pdf(
 /// Descarga el PDF de una nota de crédito.
 async fn get_credit_note_pdf(
     _user: AuthenticatedUser,
+    company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
@@ -152,8 +154,8 @@ async fn get_credit_note_pdf(
 
     let id = path.into_inner();
 
-    let note = credit_note_service::get_credit_note(&db, id).await?;
-    let company = company_service::get_company(&db).await?;
+    let note = credit_note_service::get_credit_note(&db, id, company.0).await?;
+    let company_profile = company_service::get_company_by_id(&db, company.0).await?;
 
     // Fetch the raw entity to get currency and exchange_rate_snapshot (not exposed by CreditNoteResponse)
     let note_entity = credit_notes::Entity::find_by_id(id)
@@ -166,11 +168,11 @@ async fn get_credit_note_pdf(
     let exchange_rate = note_entity.exchange_rate_snapshot.unwrap_or(Decimal::ZERO);
 
     let company_header = CompanyHeader {
-        business_name: company.business_name.clone(),
-        trade_name: company.trade_name.clone(),
-        rif: company.rif.clone(),
-        fiscal_address: company.fiscal_address.clone(),
-        phone: company.phone.clone(),
+        business_name: company_profile.business_name.clone(),
+        trade_name: company_profile.trade_name.clone(),
+        rif: company_profile.rif.clone(),
+        fiscal_address: company_profile.fiscal_address.clone(),
+        phone: company_profile.phone.clone(),
     };
 
     let items: Vec<PdfLineItem> = note
@@ -228,6 +230,7 @@ async fn get_credit_note_pdf(
 /// Descarga el PDF de una nota de débito.
 async fn get_debit_note_pdf(
     _user: AuthenticatedUser,
+    company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
@@ -241,8 +244,8 @@ async fn get_debit_note_pdf(
 
     let id = path.into_inner();
 
-    let note = debit_note_service::get_debit_note(&db, id).await?;
-    let company = company_service::get_company(&db).await?;
+    let note = debit_note_service::get_debit_note(&db, id, company.0).await?;
+    let company_profile = company_service::get_company_by_id(&db, company.0).await?;
 
     // Fetch the raw entity to get currency and exchange_rate_snapshot (not exposed by DebitNoteResponse)
     let note_entity = debit_notes::Entity::find_by_id(id)
@@ -255,11 +258,11 @@ async fn get_debit_note_pdf(
     let exchange_rate = note_entity.exchange_rate_snapshot.unwrap_or(Decimal::ZERO);
 
     let company_header = CompanyHeader {
-        business_name: company.business_name.clone(),
-        trade_name: company.trade_name.clone(),
-        rif: company.rif.clone(),
-        fiscal_address: company.fiscal_address.clone(),
-        phone: company.phone.clone(),
+        business_name: company_profile.business_name.clone(),
+        trade_name: company_profile.trade_name.clone(),
+        rif: company_profile.rif.clone(),
+        fiscal_address: company_profile.fiscal_address.clone(),
+        phone: company_profile.phone.clone(),
     };
 
     let items: Vec<PdfLineItem> = note
@@ -317,6 +320,7 @@ async fn get_debit_note_pdf(
 /// Descarga el comprobante de retención IVA en PDF.
 async fn get_iva_withholding_voucher_pdf(
     _user: AuthenticatedUser,
+    company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
@@ -326,15 +330,15 @@ async fn get_iva_withholding_voucher_pdf(
 
     let id = path.into_inner();
 
-    let wh = withholding_iva_service::get_iva_withholding(&db, id).await?;
-    let company = company_service::get_company(&db).await?;
+    let wh = withholding_iva_service::get_iva_withholding(&db, id, company.0).await?;
+    let company_profile = company_service::get_company_by_id(&db, company.0).await?;
 
     // Fetch the associated invoice to get its number and date
-    let invoice = invoice_service::get_invoice(&db, wh.invoice_id).await?;
+    let invoice = invoice_service::get_invoice(&db, wh.invoice_id, company.0).await?;
 
     let data = IvaWithholdingVoucherPdfData {
-        agent_rif: company.rif.clone(),
-        agent_name: company.business_name.clone(),
+        agent_rif: company_profile.rif.clone(),
+        agent_name: company_profile.business_name.clone(),
         supplier_rif: wh.supplier_rif.clone(),
         supplier_name: wh.supplier_name.clone(),
         invoice_number: invoice.invoice_number.clone(),
@@ -364,6 +368,7 @@ async fn get_iva_withholding_voucher_pdf(
 /// Descarga el comprobante ARC de retención ISLR en PDF.
 async fn get_islr_arc_pdf(
     _user: AuthenticatedUser,
+    company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
@@ -373,15 +378,15 @@ async fn get_islr_arc_pdf(
 
     let id = path.into_inner();
 
-    let wh = withholding_islr_service::get_islr_withholding(&db, id).await?;
-    let company = company_service::get_company(&db).await?;
+    let wh = withholding_islr_service::get_islr_withholding(&db, id, company.0).await?;
+    let company_profile = company_service::get_company_by_id(&db, company.0).await?;
 
     // Fetch the associated invoice to get its number and date
-    let invoice = invoice_service::get_invoice(&db, wh.invoice_id).await?;
+    let invoice = invoice_service::get_invoice(&db, wh.invoice_id, company.0).await?;
 
     let data = IslrArcPdfData {
-        retenedor_rif: company.rif.clone(),
-        retenedor_name: company.business_name.clone(),
+        retenedor_rif: company_profile.rif.clone(),
+        retenedor_name: company_profile.business_name.clone(),
         beneficiary_rif: wh.beneficiary_rif.clone(),
         beneficiary_name: wh.beneficiary_name.clone(),
         activity_type: wh.activity_type.clone(),
@@ -414,6 +419,7 @@ async fn get_islr_arc_pdf(
 /// "202603-02" para la segunda quincena de marzo 2026).
 async fn get_iva_withholding_xml(
     _user: AuthenticatedUser,
+    company: ActiveCompanyId,
     query: web::Query<IvaXmlQuery>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
@@ -428,17 +434,17 @@ async fn get_iva_withholding_xml(
         ));
     }
 
-    let company = company_service::get_company(&db).await?;
-    let agent_rif = company.rif.clone();
+    let company_profile = company_service::get_company_by_id(&db, company.0).await?;
+    let agent_rif = company_profile.rif.clone();
 
     // Fetch withholdings for this period from the DB
     let period_withholdings =
-        withholding_iva_service::get_iva_withholdings_for_period(&db, period).await?;
+        withholding_iva_service::get_iva_withholdings_for_period(&db, period, company.0).await?;
 
     // Build XML data structs, fetching invoice info for each withholding
     let mut xml_data: Vec<IvaWithholdingXmlData> = Vec::new();
     for wh in &period_withholdings {
-        let invoice = invoice_service::get_invoice(&db, wh.invoice_id).await?;
+        let invoice = invoice_service::get_invoice(&db, wh.invoice_id, company.0).await?;
         xml_data.push(IvaWithholdingXmlData {
             supplier_rif: wh.supplier_rif.clone(),
             supplier_name: wh.supplier_name.clone(),
@@ -473,6 +479,7 @@ async fn get_iva_withholding_xml(
 /// Exporta las retenciones ISLR del periodo como archivo TXT para el SENIAT.
 async fn get_islr_withholding_txt(
     _user: AuthenticatedUser,
+    company: ActiveCompanyId,
     query: web::Query<IslrTxtQuery>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
@@ -487,17 +494,17 @@ async fn get_islr_withholding_txt(
         ));
     }
 
-    let company = company_service::get_company(&db).await?;
-    let retenedor_rif = company.rif.clone();
+    let company_profile = company_service::get_company_by_id(&db, company.0).await?;
+    let retenedor_rif = company_profile.rif.clone();
 
     // Fetch withholdings for this period from the DB
     let period_withholdings =
-        withholding_islr_service::get_islr_withholdings_for_period(&db, period).await?;
+        withholding_islr_service::get_islr_withholdings_for_period(&db, period, company.0).await?;
 
     // Build TXT data structs, fetching invoice number for each withholding
     let mut txt_data: Vec<IslrWithholdingTxtData> = Vec::new();
     for wh in &period_withholdings {
-        let invoice = invoice_service::get_invoice(&db, wh.invoice_id).await?;
+        let invoice = invoice_service::get_invoice(&db, wh.invoice_id, company.0).await?;
         txt_data.push(IslrWithholdingTxtData {
             beneficiary_rif: wh.beneficiary_rif.clone(),
             beneficiary_name: wh.beneficiary_name.clone(),
@@ -529,6 +536,7 @@ async fn get_islr_withholding_txt(
 /// Exporta el Libro de Compras del periodo como CSV.
 async fn get_purchase_book_export(
     _user: AuthenticatedUser,
+    company: ActiveCompanyId,
     query: web::Query<BookExportQuery>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
@@ -548,7 +556,7 @@ async fn get_purchase_book_export(
         ..Default::default()
     };
 
-    let book = book_service::get_purchase_book(&db, filters).await?;
+    let book = book_service::get_purchase_book(&db, filters, company.0).await?;
 
     let entries: Vec<PurchaseBookExportEntry> = book
         .entries
@@ -592,6 +600,7 @@ async fn get_purchase_book_export(
 /// Exporta el Libro de Ventas del periodo como CSV.
 async fn get_sales_book_export(
     _user: AuthenticatedUser,
+    company: ActiveCompanyId,
     query: web::Query<BookExportQuery>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
@@ -611,7 +620,7 @@ async fn get_sales_book_export(
         ..Default::default()
     };
 
-    let book = book_service::get_sales_book(&db, filters).await?;
+    let book = book_service::get_sales_book(&db, filters, company.0).await?;
 
     let entries: Vec<SalesBookExportEntry> = book
         .entries

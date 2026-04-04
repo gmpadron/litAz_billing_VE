@@ -217,8 +217,10 @@ pub async fn create_debit_note(
 pub async fn get_debit_note(
     db: &DatabaseConnection,
     id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<DebitNoteResponse, AppError> {
     let note = debit_notes::Entity::find_by_id(id)
+        .filter(debit_notes::Column::CompanyProfileId.eq(company_profile_id))
         .one(db)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Nota de débito con ID {} no encontrada", id)))?;
@@ -258,11 +260,14 @@ pub async fn get_debit_note(
 pub async fn list_debit_notes(
     db: &DatabaseConnection,
     filters: DebitNoteFilters,
+    company_profile_id: Uuid,
 ) -> Result<PaginatedResponse<DebitNoteListResponse>, AppError> {
     let page = filters.page.unwrap_or(1);
     let per_page = filters.per_page.unwrap_or(25);
 
-    let mut query = debit_notes::Entity::find().order_by_desc(debit_notes::Column::CreatedAt);
+    let mut query = debit_notes::Entity::find()
+        .filter(debit_notes::Column::CompanyProfileId.eq(company_profile_id))
+        .order_by_desc(debit_notes::Column::CreatedAt);
 
     if let Some(from) = filters.from {
         use sea_orm::sea_query::Expr;

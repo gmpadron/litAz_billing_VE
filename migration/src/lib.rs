@@ -20,6 +20,7 @@ mod m20240001_000017_add_fk_invoice_id_book_entries;
 mod m20240001_000018_remove_invoice_annulment;
 mod m20240001_000019_fix_arc_sequence_and_audit_actions;
 mod m20240001_000020_add_igtf_to_invoices;
+mod m20240001_000021_add_multi_company_support;
 
 pub struct Migrator;
 
@@ -47,6 +48,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240001_000018_remove_invoice_annulment::Migration),
             Box::new(m20240001_000019_fix_arc_sequence_and_audit_actions::Migration),
             Box::new(m20240001_000020_add_igtf_to_invoices::Migration),
+            Box::new(m20240001_000021_add_multi_company_support::Migration),
         ]
     }
 }

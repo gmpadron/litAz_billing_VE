@@ -210,6 +210,7 @@ pub async fn create_sales_book_entry(
 pub async fn get_purchase_book(
     db: &DatabaseConnection,
     filters: BookFilters,
+    company_profile_id: Uuid,
 ) -> Result<PurchaseBookResponse, AppError> {
     let period = filters.period.ok_or_else(|| {
         AppError::BadRequest("El parámetro 'period' es obligatorio (formato: YYYY-MM)".to_string())
@@ -218,6 +219,7 @@ pub async fn get_purchase_book(
     validate_period(&period)?;
 
     let models = purchase_book_entries::Entity::find()
+        .filter(purchase_book_entries::Column::CompanyProfileId.eq(company_profile_id))
         .filter(purchase_book_entries::Column::Period.eq(period.as_str()))
         .order_by_asc(purchase_book_entries::Column::EntryDate)
         .all(db)
@@ -284,6 +286,7 @@ pub async fn get_purchase_book(
 pub async fn get_sales_book(
     db: &DatabaseConnection,
     filters: BookFilters,
+    company_profile_id: Uuid,
 ) -> Result<SalesBookResponse, AppError> {
     let period = filters.period.ok_or_else(|| {
         AppError::BadRequest("El parámetro 'period' es obligatorio (formato: YYYY-MM)".to_string())
@@ -292,6 +295,7 @@ pub async fn get_sales_book(
     validate_period(&period)?;
 
     let models = sales_book_entries::Entity::find()
+        .filter(sales_book_entries::Column::CompanyProfileId.eq(company_profile_id))
         .filter(sales_book_entries::Column::Period.eq(period.as_str()))
         .order_by_asc(sales_book_entries::Column::EntryDate)
         .all(db)

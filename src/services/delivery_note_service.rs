@@ -266,8 +266,10 @@ async fn create_client_stub(
 pub async fn get_delivery_note(
     db: &DatabaseConnection,
     id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<DeliveryNoteResponse, AppError> {
     let note = delivery_notes::Entity::find_by_id(id)
+        .filter(delivery_notes::Column::CompanyProfileId.eq(company_profile_id))
         .one(db)
         .await?
         .ok_or_else(|| {
@@ -313,12 +315,14 @@ pub async fn get_delivery_note(
 pub async fn list_delivery_notes(
     db: &DatabaseConnection,
     filters: DeliveryNoteFilters,
+    company_profile_id: Uuid,
 ) -> Result<PaginatedResponse<DeliveryNoteListResponse>, AppError> {
     let page = filters.page.unwrap_or(1);
     let per_page = filters.per_page.unwrap_or(25);
 
-    let mut query =
-        delivery_notes::Entity::find().order_by_desc(delivery_notes::Column::CreatedAt);
+    let mut query = delivery_notes::Entity::find()
+        .filter(delivery_notes::Column::CompanyProfileId.eq(company_profile_id))
+        .order_by_desc(delivery_notes::Column::CreatedAt);
 
     if let Some(from) = filters.from {
         use sea_orm::sea_query::Expr;

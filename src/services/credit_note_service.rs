@@ -191,6 +191,7 @@ pub async fn create_credit_note(
         AuditAction::Create,
         AuditEntity::CreditNote,
         id,
+        Some(company_profile_id),
         None,
     )
     .await;
@@ -231,8 +232,10 @@ pub async fn create_credit_note(
 pub async fn get_credit_note(
     db: &DatabaseConnection,
     id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<CreditNoteResponse, AppError> {
     let note = credit_notes::Entity::find_by_id(id)
+        .filter(credit_notes::Column::CompanyProfileId.eq(company_profile_id))
         .one(db)
         .await?
         .ok_or_else(|| {
@@ -276,11 +279,14 @@ pub async fn get_credit_note(
 pub async fn list_credit_notes(
     db: &DatabaseConnection,
     filters: CreditNoteFilters,
+    company_profile_id: Uuid,
 ) -> Result<PaginatedResponse<CreditNoteListResponse>, AppError> {
     let page = filters.page.unwrap_or(1);
     let per_page = filters.per_page.unwrap_or(25);
 
-    let mut query = credit_notes::Entity::find().order_by_desc(credit_notes::Column::CreatedAt);
+    let mut query = credit_notes::Entity::find()
+        .filter(credit_notes::Column::CompanyProfileId.eq(company_profile_id))
+        .order_by_desc(credit_notes::Column::CreatedAt);
 
     if let Some(from) = filters.from {
         use sea_orm::sea_query::Expr;

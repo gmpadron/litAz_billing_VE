@@ -20,6 +20,7 @@ pub async fn create_client(
     db: &DatabaseConnection,
     dto: CreateClientRequest,
     user_id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<ClientResponse, AppError> {
     // Validar formato de RIF si se proporciona
     if let Some(ref rif) = dto.rif {
@@ -29,6 +30,7 @@ pub async fn create_client(
 
         let existing = clients::Entity::find()
             .filter(clients::Column::Rif.eq(rif.as_str()))
+            .filter(clients::Column::CompanyProfileId.eq(company_profile_id))
             .one(db)
             .await?;
         if existing.is_some() {
@@ -55,6 +57,7 @@ pub async fn create_client(
         es_consumidor_final: Set(is_consumer_final),
         es_contribuyente_especial: Set(dto.is_special_taxpayer.unwrap_or(false)),
         is_active: Set(true),
+        company_profile_id: Set(company_profile_id),
         created_by: Set(user_id),
         created_at: Set(now),
         updated_at: Set(now),
@@ -81,8 +84,10 @@ pub async fn create_client(
 pub async fn get_client(
     db: &DatabaseConnection,
     id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<ClientResponse, AppError> {
     let client = clients::Entity::find_by_id(id)
+        .filter(clients::Column::CompanyProfileId.eq(company_profile_id))
         .one(db)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Cliente con ID {} no encontrado", id)))?;
@@ -112,12 +117,14 @@ pub async fn get_client(
 pub async fn list_clients(
     db: &DatabaseConnection,
     filters: ClientFilters,
+    company_profile_id: Uuid,
 ) -> Result<PaginatedResponse<ClientListResponse>, AppError> {
     let page = filters.page.unwrap_or(1);
     let per_page = filters.per_page.unwrap_or(25);
 
     let mut query = clients::Entity::find()
         .filter(clients::Column::IsActive.eq(true))
+        .filter(clients::Column::CompanyProfileId.eq(company_profile_id))
         .order_by_desc(clients::Column::CreatedAt);
 
     if let Some(ref search) = filters.search {
@@ -158,8 +165,10 @@ pub async fn update_client(
     id: Uuid,
     dto: UpdateClientRequest,
     _user_id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<ClientResponse, AppError> {
     let client = clients::Entity::find_by_id(id)
+        .filter(clients::Column::CompanyProfileId.eq(company_profile_id))
         .one(db)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Cliente con ID {} no encontrado", id)))?;
@@ -195,5 +204,5 @@ pub async fn update_client(
 
     active.update(db).await?;
 
-    get_client(db, id).await
+    get_client(db, id, company_profile_id).await
 }

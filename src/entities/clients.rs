@@ -21,6 +21,8 @@ pub struct Model {
     pub es_consumidor_final: bool,
     pub es_contribuyente_especial: bool,
     pub is_active: bool,
+    /// Empresa a la que pertenece este cliente
+    pub company_profile_id: Uuid,
     /// UUID of the user who created this record (from JWT)
     pub created_by: Uuid,
     pub created_at: DateTimeWithTimeZone,
@@ -29,6 +31,14 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::company_profiles::Entity",
+        from = "Column::CompanyProfileId",
+        to = "super::company_profiles::Column::Id",
+        on_update = "NoAction",
+        on_delete = "Restrict"
+    )]
+    CompanyProfile,
     #[sea_orm(has_many = "super::invoices::Entity")]
     Invoices,
     #[sea_orm(has_many = "super::credit_notes::Entity")]
@@ -41,6 +51,12 @@ pub enum Relation {
     TaxWithholdingsIva,
     #[sea_orm(has_many = "super::tax_withholdings_islr::Entity")]
     TaxWithholdingsIslr,
+}
+
+impl Related<super::company_profiles::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CompanyProfile.def()
+    }
 }
 
 impl Related<super::invoices::Entity> for Entity {

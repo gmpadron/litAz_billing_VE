@@ -1,32 +1,52 @@
-//! DTOs de request/response para el perfil fiscal de la empresa emisora.
+//! DTOs de request/response para perfiles fiscales de empresa (multi-empresa).
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Response del perfil fiscal de la empresa.
+/// Item resumido para la lista de empresas (GET /company).
 #[derive(Debug, Clone, Serialize)]
-pub struct CompanyResponse {
+pub struct CompanyListItem {
     pub id: Uuid,
-    /// Razón social de la empresa.
     pub business_name: String,
-    /// Nombre comercial (puede diferir de la razón social).
     pub trade_name: Option<String>,
-    /// RIF de la empresa emisora.
     pub rif: String,
-    /// Domicilio fiscal.
-    pub fiscal_address: String,
-    /// Teléfono de contacto.
-    pub phone: Option<String>,
-    /// Correo electrónico.
-    pub email: Option<String>,
-    /// Indica si es contribuyente especial ante el SENIAT.
     pub is_special_taxpayer: bool,
-    /// Número de resolución de contribuyente especial (si aplica).
-    pub special_taxpayer_resolution: Option<String>,
+    pub is_active: bool,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-/// Request de actualización del perfil fiscal de la empresa.
+/// Response completo de una empresa.
+#[derive(Debug, Clone, Serialize)]
+pub struct CompanyResponse {
+    pub id: Uuid,
+    pub business_name: String,
+    pub trade_name: Option<String>,
+    pub rif: String,
+    pub fiscal_address: String,
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub is_special_taxpayer: bool,
+    pub special_taxpayer_resolution: Option<String>,
+    pub is_active: bool,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Request para CREAR una empresa (POST /company).
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateCompanyRequest {
+    /// Razón social — requerido.
+    pub business_name: String,
+    /// RIF — requerido, único en el sistema.
+    pub rif: String,
+    pub trade_name: Option<String>,
+    pub fiscal_address: Option<String>,
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub is_special_taxpayer: Option<bool>,
+    pub special_taxpayer_resolution: Option<String>,
+}
+
+/// Request para ACTUALIZAR una empresa (PUT /company/{id}).
 #[derive(Debug, Clone, Deserialize)]
 pub struct UpdateCompanyRequest {
     pub business_name: Option<String>,

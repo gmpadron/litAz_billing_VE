@@ -192,6 +192,7 @@ pub async fn create_iva_withholding(
         AuditAction::Create,
         AuditEntity::WithholdingIva,
         id,
+        Some(company_profile_id),
         None,
     )
     .await;
@@ -255,8 +256,10 @@ async fn resolve_supplier_id(
 pub async fn get_iva_withholding(
     db: &DatabaseConnection,
     id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<IvaWithholdingResponse, AppError> {
     let wh = tax_withholdings_iva::Entity::find_by_id(id)
+        .filter(tax_withholdings_iva::Column::CompanyProfileId.eq(company_profile_id))
         .one(db)
         .await?
         .ok_or_else(|| {
@@ -300,11 +303,13 @@ pub async fn get_iva_withholding(
 pub async fn list_iva_withholdings(
     db: &DatabaseConnection,
     filters: IvaWithholdingFilters,
+    company_profile_id: Uuid,
 ) -> Result<PaginatedResponse<IvaWithholdingListResponse>, AppError> {
     let page = filters.page.unwrap_or(1);
     let per_page = filters.per_page.unwrap_or(25);
 
     let mut query = tax_withholdings_iva::Entity::find()
+        .filter(tax_withholdings_iva::Column::CompanyProfileId.eq(company_profile_id))
         .order_by_desc(tax_withholdings_iva::Column::CreatedAt);
 
     if let Some(ref period) = filters.period {
@@ -358,8 +363,10 @@ pub async fn list_iva_withholdings(
 pub async fn get_iva_withholdings_for_period(
     db: &DatabaseConnection,
     period: &str,
+    company_profile_id: Uuid,
 ) -> Result<Vec<IvaWithholdingResponse>, AppError> {
-    let mut query = tax_withholdings_iva::Entity::find();
+    let mut query = tax_withholdings_iva::Entity::find()
+        .filter(tax_withholdings_iva::Column::CompanyProfileId.eq(company_profile_id));
 
     if is_valid_iva_period(period) {
         let parsed = parse_iva_period(period)?;

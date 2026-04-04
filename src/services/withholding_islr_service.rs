@@ -192,6 +192,7 @@ pub async fn create_islr_withholding(
         AuditAction::Create,
         AuditEntity::WithholdingIslr,
         id,
+        Some(company_profile_id),
         None,
     )
     .await;
@@ -256,8 +257,10 @@ async fn resolve_supplier_id<C: ConnectionTrait>(
 pub async fn get_islr_withholding(
     db: &DatabaseConnection,
     id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<IslrWithholdingResponse, AppError> {
     let wh = tax_withholdings_islr::Entity::find_by_id(id)
+        .filter(tax_withholdings_islr::Column::CompanyProfileId.eq(company_profile_id))
         .one(db)
         .await?
         .ok_or_else(|| {
@@ -295,11 +298,13 @@ pub async fn get_islr_withholding(
 pub async fn list_islr_withholdings(
     db: &DatabaseConnection,
     filters: IslrWithholdingFilters,
+    company_profile_id: Uuid,
 ) -> Result<PaginatedResponse<IslrWithholdingListResponse>, AppError> {
     let page = filters.page.unwrap_or(1);
     let per_page = filters.per_page.unwrap_or(25);
 
     let mut query = tax_withholdings_islr::Entity::find()
+        .filter(tax_withholdings_islr::Column::CompanyProfileId.eq(company_profile_id))
         .order_by_desc(tax_withholdings_islr::Column::CreatedAt);
 
     if let Some(ref period) = filters.period {
@@ -341,8 +346,10 @@ pub async fn list_islr_withholdings(
 pub async fn get_islr_withholdings_for_period(
     db: &DatabaseConnection,
     period: &str,
+    company_profile_id: Uuid,
 ) -> Result<Vec<IslrWithholdingResponse>, AppError> {
     let models = tax_withholdings_islr::Entity::find()
+        .filter(tax_withholdings_islr::Column::CompanyProfileId.eq(company_profile_id))
         .filter(tax_withholdings_islr::Column::ReportingPeriod.eq(period))
         .order_by_asc(tax_withholdings_islr::Column::CreatedAt)
         .all(db)
