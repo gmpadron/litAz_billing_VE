@@ -1,5 +1,6 @@
 // Capa de servicios: orquestación entre dominio e infraestructura
 
+pub mod audit_service;
 pub mod book_service;
 pub mod client_service;
 pub mod company_service;

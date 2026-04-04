@@ -11,14 +11,15 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::domain::invoice::{InvoiceBuilder, PaymentCondition};
+use crate::domain::tax::igtf::{calculate_igtf, is_forex_currency};
 use crate::domain::tax::iva::IvaRate;
 use crate::dto::PaginatedResponse;
 use crate::dto::invoice_dto::{
-    CreateInvoiceRequest, InvoiceFilters, InvoiceItemResponse, InvoiceListResponse,
-    InvoiceResponse, VoidInvoiceRequest,
+    CreateInvoiceRequest, InvoiceFilters, InvoiceItemResponse, InvoiceListResponse, InvoiceResponse,
 };
-use crate::entities::{invoice_items, invoices};
+use crate::entities::{company_profiles, invoice_items, invoices};
 use crate::errors::AppError;
+use crate::services::audit_service::{self, AuditAction, AuditEntity};
 
 /// Obtiene el próximo número de factura atómicamente usando SELECT FOR UPDATE.
 async fn next_invoice_number_atomic<C: ConnectionTrait>(
@@ -240,6 +241,20 @@ pub async fn create_invoice(
     // Resolver client_id: buscar por RIF o crear un cliente "consumidor final"
     let client_id = resolve_client_id(&txn, &dto.client_rif, &dto.client_name, &client_address, user_id).await?;
 
+    // Calcular IGTF si aplica (empresa SPE + moneda divisas)
+    let company = company_profiles::Entity::find_by_id(company_profile_id)
+        .one(&txn)
+        .await?
+        .ok_or_else(|| AppError::BadRequest("Perfil de empresa no encontrado".into()))?;
+
+    let igtf_amount = if company.es_contribuyente_especial && is_forex_currency(&invoice_data.currency) {
+        calculate_igtf(totals.grand_total)
+            .map_err(|e| AppError::Internal(e.to_string()))?
+            .igtf_amount
+    } else {
+        Decimal::ZERO
+    };
+
     // INSERT invoice
     let invoice_model = invoices::ActiveModel {
         id: Set(id),
@@ -259,6 +274,7 @@ pub async fn create_invoice(
         iva_lujo: Set(totals.tax_luxury),
         tax_amount: Set(totals.total_tax),
         total: Set(totals.grand_total),
+        igtf_amount: Set(igtf_amount),
         currency: Set(invoice_data.currency.clone()),
         exchange_rate_id: Set(None),
         exchange_rate_snapshot: Set(Some(invoice_data.exchange_rate)),
@@ -267,7 +283,6 @@ pub async fn create_invoice(
         credit_days: Set(credit_days_val),
         no_fiscal_credit: Set(invoice_data.no_fiscal_credit),
         notes: Set(None),
-        annulment_reason: Set(None),
         created_by: Set(user_id),
         created_at: Set(now),
         updated_at: Set(now),
@@ -316,10 +331,23 @@ pub async fn create_invoice(
 
     txn.commit().await?;
 
+    // Audit log — errors do NOT propagate (must not block fiscal operations)
+    audit_service::log(
+        db,
+        user_id,
+        AuditAction::Create,
+        AuditEntity::Invoice,
+        id,
+        None,
+    )
+    .await;
+
     let (pc_str, cd) = match &invoice_data.payment_condition {
         PaymentCondition::Cash => ("cash".to_string(), None),
         PaymentCondition::Credit { days } => ("credit".to_string(), *days),
     };
+
+    let total_to_pay = totals.grand_total + igtf_amount;
 
     Ok(InvoiceResponse {
         id,
@@ -342,6 +370,8 @@ pub async fn create_invoice(
         tax_luxury: totals.tax_luxury,
         total_tax: totals.total_tax,
         grand_total: totals.grand_total,
+        igtf_amount,
+        total_to_pay,
         created_by: user_id,
         created_at: Utc::now(),
     })
@@ -484,6 +514,8 @@ pub async fn get_invoice(
         tax_luxury: invoice.iva_lujo,
         total_tax: invoice.tax_amount,
         grand_total: invoice.total,
+        igtf_amount: invoice.igtf_amount,
+        total_to_pay: invoice.total + invoice.igtf_amount,
         created_by: invoice.created_by,
         created_at: invoice.created_at.with_timezone(&Utc),
     })
@@ -547,31 +579,3 @@ pub async fn list_invoices(
     Ok(PaginatedResponse::new(data, page, per_page, total))
 }
 
-/// Anula una factura (marca como Anulada, NUNCA elimina).
-pub async fn void_invoice(
-    db: &DatabaseConnection,
-    id: Uuid,
-    _user_id: Uuid,
-    request: VoidInvoiceRequest,
-) -> Result<InvoiceResponse, AppError> {
-    let invoice = invoices::Entity::find_by_id(id)
-        .one(db)
-        .await?
-        .ok_or_else(|| AppError::NotFound(format!("Factura con ID {} no encontrada", id)))?;
-
-    if invoice.status == "Anulada" {
-        return Err(AppError::BadRequest(
-            "La factura ya está anulada".to_string(),
-        ));
-    }
-
-    let now = Utc::now().into();
-    let mut active: invoices::ActiveModel = invoice.into();
-    active.status = Set("Anulada".to_string());
-    active.annulment_reason = Set(Some(request.reason));
-    active.updated_at = Set(now);
-    active.update(db).await?;
-
-    // Return the updated invoice
-    get_invoice(db, id).await
-}

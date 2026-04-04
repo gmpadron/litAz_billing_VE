@@ -8,7 +8,7 @@ Los handlers en `api/` siempre delegan a un service — nunca acceden a la BD di
 
 | Archivo                       | Descripción                                                              |
 |-------------------------------|--------------------------------------------------------------------------|
-| `invoice_service.rs`          | Crear, listar, obtener y anular facturas.                                |
+| `invoice_service.rs`          | Crear, listar y obtener facturas (inmutables una vez emitidas).          |
 | `credit_note_service.rs`      | Crear, listar y obtener notas de crédito.                                |
 | `debit_note_service.rs`       | Crear, listar y obtener notas de débito.                                 |
 | `delivery_note_service.rs`    | Crear, listar y obtener guías de despacho.                               |
@@ -37,11 +37,9 @@ Los handlers en `api/` siempre delegan a un service — nunca acceden a la BD di
 6. Persiste la factura e ítems en una transacción.
 7. Registra en `audit_logs`.
 
-Las facturas son **inmutables** una vez creadas. No hay endpoint de actualización.
-
-### `void_invoice(db, invoice_id, user_id, request) -> Result<InvoiceResponse>`
-
-Cambia el estado a `Anulada`. Requiere motivo. No borra el registro — cumple con la obligación de conservar datos 10 años.
+Las facturas son **inmutables** una vez emitidas. No existe endpoint de actualización ni de anulación.
+Para corregir una factura emitida se debe emitir una **Nota de Crédito** que la referencie
+por número de control y número de factura (PA SNAT/2011/0071).
 
 ### `list_invoices(db, filters) -> Result<PaginatedResponse<InvoiceRow>>`
 

@@ -39,9 +39,22 @@ impl Settings {
             .filter(|s| !s.is_empty())
             .collect();
 
+        let jwt_secret = std::env::var("JWT_SECRET")?;
+
+        // Un secreto JWT corto permite ataques de fuerza bruta sobre el HMAC-SHA256.
+        // 32 caracteres = 256 bits mínimo, equivalente a la longitud del hash SHA-256.
+        if jwt_secret.len() < 32 {
+            panic!(
+                "JWT_SECRET debe tener al menos 32 caracteres (tiene {}). \
+                 Use un secreto generado aleatoriamente, por ejemplo: \
+                 openssl rand -hex 32",
+                jwt_secret.len()
+            );
+        }
+
         Ok(Self {
             database_url: std::env::var("DATABASE_URL")?,
-            jwt_secret: std::env::var("JWT_SECRET")?,
+            jwt_secret,
             jwt_issuer: std::env::var("JWT_ISSUER").ok().filter(|s| !s.is_empty()),
             jwt_audience: std::env::var("JWT_AUDIENCE").ok().filter(|s| !s.is_empty()),
             server_host: std::env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),

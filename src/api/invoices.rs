@@ -1,11 +1,14 @@
 //! Handlers HTTP para facturas.
+//!
+//! Las facturas son INMUTABLES una vez emitidas (PA SNAT/2011/0071).
+//! Para corregir o revertir una factura emitida se debe emitir una Nota de Crédito.
 
 use actix_web::{HttpResponse, web};
 use sea_orm::DatabaseConnection;
 
 use crate::api::helpers::get_active_company_id;
 use crate::dto::ApiResponse;
-use crate::dto::invoice_dto::{CreateInvoiceRequest, InvoiceFilters, VoidInvoiceRequest};
+use crate::dto::invoice_dto::{CreateInvoiceRequest, InvoiceFilters};
 use crate::errors::AppError;
 use crate::middleware::{AuthenticatedUser, require_accountant};
 use crate::services::invoice_service;
@@ -44,26 +47,11 @@ async fn get_invoice(
     Ok(HttpResponse::Ok().json(ApiResponse::success(invoice)))
 }
 
-/// POST /billingVE/v1/invoices/{id}/void — requiere admin o accountant
-async fn void_invoice(
-    user: AuthenticatedUser,
-    db: web::Data<DatabaseConnection>,
-    path: web::Path<uuid::Uuid>,
-    body: web::Json<VoidInvoiceRequest>,
-) -> Result<HttpResponse, AppError> {
-    require_accountant(&user)?;
-    let invoice =
-        invoice_service::void_invoice(db.get_ref(), path.into_inner(), user.id, body.into_inner())
-            .await?;
-    Ok(HttpResponse::Ok().json(ApiResponse::success(invoice)))
-}
-
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/invoices")
             .route("", web::post().to(create_invoice))
             .route("", web::get().to(list_invoices))
-            .route("/{id}", web::get().to(get_invoice))
-            .route("/{id}/void", web::post().to(void_invoice)),
+            .route("/{id}", web::get().to(get_invoice)),
     );
 }

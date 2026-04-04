@@ -36,12 +36,12 @@ Construyen notas de crédito/débito validando que:
 ### `status.rs` — Estados de factura
 
 ```
-Activa → Anulada   (por void_invoice con motivo)
-Activa → Parcial   (si hay nota de crédito parcial)
-Activa → Cerrada   (si la nota de crédito cubre el total)
+Borrador → Emitida   (única transición válida)
 ```
 
-Las facturas nunca se eliminan. El historial de estados es inmutable.
+Las facturas son **inmutables** una vez emitidas (PA SNAT/2011/0071).
+No existe transición a "Anulada". Para corregir una factura emitida
+se emite una Nota de Crédito que la referencia. Las facturas nunca se eliminan.
 
 ### `validation.rs`
 

@@ -11,7 +11,7 @@ pub struct Model {
     pub id: Uuid,
     /// UUID from JWT — who performed the action
     pub user_id: Uuid,
-    /// Action: CREATE | UPDATE | ANNUL | DELETE | VIEW | EXPORT | DECLARE
+    /// Action: CREATE | UPDATE | VIEW | EXPORT | DECLARE
     pub action: String,
     /// Type of entity: invoice, credit_note, debit_note, etc.
     pub entity_type: String,

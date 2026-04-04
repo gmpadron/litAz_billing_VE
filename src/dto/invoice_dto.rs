@@ -83,6 +83,11 @@ pub struct InvoiceResponse {
     pub total_tax: Decimal,
     /// Gran total (subtotal + IVA).
     pub grand_total: Decimal,
+    /// IGTF 3% sobre el total en divisas (0 si no aplica).
+    /// Aplica cuando la empresa es SPE y la moneda es divisas (USD, etc.).
+    pub igtf_amount: Decimal,
+    /// Total final a cobrar al cliente = grand_total + igtf_amount.
+    pub total_to_pay: Decimal,
     pub created_by: Uuid,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
@@ -112,9 +117,3 @@ pub struct InvoiceFilters {
     pub status: Option<String>,
 }
 
-/// Request para anular una factura.
-#[derive(Debug, Clone, Deserialize)]
-pub struct VoidInvoiceRequest {
-    /// Motivo de la anulación.
-    pub reason: String,
-}

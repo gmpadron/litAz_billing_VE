@@ -1,5 +1,6 @@
 //! SeaORM entity for the `invoices` table.
-//! Invoices are IMMUTABLE once issued — never delete, use Anulada status instead.
+//! Invoices are IMMUTABLE once issued — never delete, never void.
+//! To correct an issued invoice, emit a Credit Note (Nota de Crédito) referencing it.
 
 use rust_decimal::Decimal;
 use sea_orm::entity::prelude::*;
@@ -52,7 +53,10 @@ pub struct Model {
     #[sea_orm(column_type = "Decimal(Some((18, 6)))", nullable)]
     pub exchange_rate_snapshot: Option<Decimal>,
     // ---- Status and payment ----
-    /// Emitida | Anulada — never delete rows
+    /// IGTF (3%) sobre el total en divisas — 0 si no aplica (empresa no SPE o moneda VES)
+    #[sea_orm(column_type = "Decimal(Some((18, 2)))")]
+    pub igtf_amount: Decimal,
+    /// Emitida — never delete rows, never void (use Nota de Crédito instead)
     pub status: String,
     /// Contado | Crédito
     pub payment_condition: String,
@@ -61,7 +65,6 @@ pub struct Model {
     /// "SIN DERECHO A CRÉDITO FISCAL" — required for consumer final invoices
     pub no_fiscal_credit: bool,
     pub notes: Option<String>,
-    pub annulment_reason: Option<String>,
     pub created_by: Uuid,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,

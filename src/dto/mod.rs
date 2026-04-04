@@ -39,7 +39,7 @@ pub use delivery_note_dto::{
 #[allow(unused_imports)]
 pub use invoice_dto::{
     CreateInvoiceRequest, InvoiceFilters, InvoiceItemRequest, InvoiceItemResponse,
-    InvoiceListResponse, InvoiceResponse, VoidInvoiceRequest,
+    InvoiceListResponse, InvoiceResponse,
 };
 pub use response::{ApiResponse, PaginatedResponse};
 #[allow(unused_imports)]

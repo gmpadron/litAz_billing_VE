@@ -17,6 +17,9 @@ mod m20240001_000014_create_sales_book_entries;
 mod m20240001_000015_create_audit_logs;
 mod m20240001_000016_fix_invoice_items_created_by_purchase_rif_arc_unique;
 mod m20240001_000017_add_fk_invoice_id_book_entries;
+mod m20240001_000018_remove_invoice_annulment;
+mod m20240001_000019_fix_arc_sequence_and_audit_actions;
+mod m20240001_000020_add_igtf_to_invoices;
 
 pub struct Migrator;
 
@@ -41,6 +44,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20240001_000015_create_audit_logs::Migration),
             Box::new(m20240001_000016_fix_invoice_items_created_by_purchase_rif_arc_unique::Migration),
             Box::new(m20240001_000017_add_fk_invoice_id_book_entries::Migration),
+            Box::new(m20240001_000018_remove_invoice_annulment::Migration),
+            Box::new(m20240001_000019_fix_arc_sequence_and_audit_actions::Migration),
+            Box::new(m20240001_000020_add_igtf_to_invoices::Migration),
         ]
     }
 }

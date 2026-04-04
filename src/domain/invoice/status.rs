@@ -1,4 +1,7 @@
 //! Estados de documentos fiscales y transiciones válidas.
+//!
+//! Según la PA SNAT/2011/0071 y PA SNAT/2024/000102, las facturas emitidas
+//! NUNCA se anulan. Toda corrección se realiza mediante Nota de Crédito.
 
 use thiserror::Error;
 
@@ -7,10 +10,8 @@ use thiserror::Error;
 pub enum DocumentStatus {
     /// Borrador: el documento fue creado pero aún no emitido.
     Draft,
-    /// Emitida: el documento fue emitido y tiene validez fiscal.
+    /// Emitida: el documento fue emitido y tiene validez fiscal. Es inmutable.
     Issued,
-    /// Anulada: el documento fue anulado. Permanece en el sistema pero sin efecto fiscal.
-    Voided,
 }
 
 /// Error en transición de estado de documento.
@@ -28,14 +29,13 @@ impl DocumentStatus {
     ///
     /// Transiciones permitidas:
     /// - `Draft` → `Issued`
-    /// - `Issued` → `Voided`
     ///
-    /// No se permite ninguna otra transición.
+    /// Una factura emitida no puede cambiar de estado. Para corregirla
+    /// se debe emitir una Nota de Crédito que la referencie.
     pub fn can_transition_to(&self, target: &DocumentStatus) -> bool {
         matches!(
             (self, target),
             (DocumentStatus::Draft, DocumentStatus::Issued)
-                | (DocumentStatus::Issued, DocumentStatus::Voided)
         )
     }
 
@@ -60,7 +60,6 @@ impl std::fmt::Display for DocumentStatus {
         match self {
             DocumentStatus::Draft => write!(f, "Borrador"),
             DocumentStatus::Issued => write!(f, "Emitida"),
-            DocumentStatus::Voided => write!(f, "Anulada"),
         }
     }
 }
@@ -75,31 +74,18 @@ mod tests {
     }
 
     #[test]
-    fn test_issued_to_voided_allowed() {
-        assert!(DocumentStatus::Issued.can_transition_to(&DocumentStatus::Voided));
-    }
-
-    #[test]
-    fn test_draft_to_voided_not_allowed() {
-        assert!(!DocumentStatus::Draft.can_transition_to(&DocumentStatus::Voided));
-    }
-
-    #[test]
     fn test_issued_to_draft_not_allowed() {
         assert!(!DocumentStatus::Issued.can_transition_to(&DocumentStatus::Draft));
     }
 
     #[test]
-    fn test_voided_transitions_not_allowed() {
-        assert!(!DocumentStatus::Voided.can_transition_to(&DocumentStatus::Draft));
-        assert!(!DocumentStatus::Voided.can_transition_to(&DocumentStatus::Issued));
-        assert!(!DocumentStatus::Voided.can_transition_to(&DocumentStatus::Voided));
+    fn test_issued_to_issued_not_allowed() {
+        assert!(!DocumentStatus::Issued.can_transition_to(&DocumentStatus::Issued));
     }
 
     #[test]
-    fn test_same_state_not_allowed() {
+    fn test_draft_to_draft_not_allowed() {
         assert!(!DocumentStatus::Draft.can_transition_to(&DocumentStatus::Draft));
-        assert!(!DocumentStatus::Issued.can_transition_to(&DocumentStatus::Issued));
     }
 
     #[test]
@@ -110,7 +96,7 @@ mod tests {
 
     #[test]
     fn test_transition_to_returns_error_on_invalid() {
-        let result = DocumentStatus::Draft.transition_to(DocumentStatus::Voided);
+        let result = DocumentStatus::Issued.transition_to(DocumentStatus::Draft);
         assert!(matches!(
             result,
             Err(StatusTransitionError::InvalidTransition { .. })
@@ -121,6 +107,5 @@ mod tests {
     fn test_display() {
         assert_eq!(format!("{}", DocumentStatus::Draft), "Borrador");
         assert_eq!(format!("{}", DocumentStatus::Issued), "Emitida");
-        assert_eq!(format!("{}", DocumentStatus::Voided), "Anulada");
     }
 }

@@ -4,8 +4,8 @@ use chrono::Utc;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set, Statement, TransactionTrait,
 };
 use uuid::Uuid;
 
@@ -16,8 +16,9 @@ use crate::dto::withholding_islr_dto::{
     CreateIslrWithholdingRequest, IslrWithholdingFilters, IslrWithholdingListResponse,
     IslrWithholdingResponse,
 };
-use crate::entities::tax_withholdings_islr;
+use crate::entities::{invoices, tax_withholdings_islr};
 use crate::errors::AppError;
+use crate::services::audit_service::{self, AuditAction, AuditEntity};
 
 /// Valida que el periodo tenga formato YYYY-MM (ej: "2026-03").
 fn is_valid_islr_period(period: &str) -> bool {
@@ -55,6 +56,46 @@ fn percentage_to_rate(percentage: Decimal) -> Result<Decimal, AppError> {
         )));
     }
     Ok(rate)
+}
+
+/// Obtiene el próximo número ARC atómicamente usando SELECT FOR UPDATE en numbering_sequences.
+async fn next_arc_number_atomic<C: ConnectionTrait>(
+    txn: &C,
+    company_profile_id: Uuid,
+) -> Result<String, AppError> {
+    let rows = txn
+        .query_all(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Postgres,
+            r#"SELECT id, current_value, prefix FROM numbering_sequences
+               WHERE company_profile_id = $1 AND sequence_type = 'ARC' AND is_active = true
+               FOR UPDATE"#,
+            [company_profile_id.into()],
+        ))
+        .await
+        .map_err(AppError::Database)?;
+
+    let row = rows.first().ok_or_else(|| {
+        AppError::BadRequest(
+            "No hay secuencia de numeración activa para comprobantes ARC. Ejecute el seeder.".into(),
+        )
+    })?;
+
+    let id: Uuid = row.try_get("", "id").map_err(AppError::Database)?;
+    let current: i64 = row.try_get("", "current_value").map_err(AppError::Database)?;
+    let prefix: Option<String> = row.try_get("", "prefix").map_err(AppError::Database)?;
+
+    let next_val = current + 1;
+
+    txn.execute(Statement::from_sql_and_values(
+        sea_orm::DatabaseBackend::Postgres,
+        r#"UPDATE numbering_sequences SET current_value = $1, updated_at = NOW() WHERE id = $2"#,
+        [next_val.into(), id.into()],
+    ))
+    .await
+    .map_err(AppError::Database)?;
+
+    let number = format!("{}{:08}", prefix.unwrap_or_else(|| "ARC-".to_string()), next_val);
+    Ok(number)
 }
 
 /// Crea una nueva retención de ISLR con persistencia real.
@@ -99,64 +140,61 @@ pub async fn create_islr_withholding(
     let result = calculate_islr_withholding_with_subtract(dto.base_amount, rate, subtract)
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    // Resolve supplier_id
+    let txn = db.begin().await?;
+
+    // Validate that the referenced invoice actually exists
+    invoices::Entity::find_by_id(dto.invoice_id)
+        .one(&txn)
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "Factura con ID {} no encontrada. No se puede registrar la retención.",
+                dto.invoice_id
+            ))
+        })?;
+
+    // Número ARC atómico — igual que el resto de documentos fiscales
+    let arc_number = next_arc_number_atomic(&txn, company_profile_id).await?;
+
+    // Resolve supplier_id dentro de la transacción
     let supplier_id =
-        resolve_supplier_id(db, &dto.beneficiary_rif, &dto.beneficiary_name, user_id).await?;
+        resolve_supplier_id(&txn, &dto.beneficiary_rif, &dto.beneficiary_name, user_id).await?;
 
     let id = Uuid::new_v4();
     let now = Utc::now().into();
 
-    // Generate sequential ARC number based on existing count for this company.
-    // Retry up to 3 times on unique constraint violations (race condition protection).
-    let mut insert_success = false;
+    let withholding = tax_withholdings_islr::ActiveModel {
+        id: Set(id),
+        arc_number: Set(arc_number),
+        invoice_id: Set(dto.invoice_id),
+        supplier_id: Set(supplier_id),
+        company_profile_id: Set(company_profile_id),
+        withholding_date: Set(now),
+        reporting_period: Set(dto.period.clone()),
+        activity_code: Set(dto.activity_type.clone()),
+        activity_description: Set(dto.activity_type.clone()),
+        taxable_amount: Set(dto.base_amount),
+        withholding_rate: Set(dto.withholding_rate),
+        withheld_amount: Set(result.withheld_amount),
+        status: Set("Emitido".to_string()),
+        txt_file_path: Set(None),
+        created_by: Set(user_id),
+        created_at: Set(now),
+        updated_at: Set(now),
+    };
 
-    for attempt in 0..3 {
-        let count = tax_withholdings_islr::Entity::find()
-            .filter(tax_withholdings_islr::Column::CompanyProfileId.eq(company_profile_id))
-            .count(db)
-            .await? as i64;
-        let arc_number = format!("ARC-{:08}", count + 1 + attempt as i64);
+    withholding.insert(&txn).await?;
+    txn.commit().await?;
 
-        let withholding = tax_withholdings_islr::ActiveModel {
-            id: Set(id),
-            arc_number: Set(arc_number.clone()),
-            invoice_id: Set(dto.invoice_id),
-            supplier_id: Set(supplier_id),
-            company_profile_id: Set(company_profile_id),
-            withholding_date: Set(now),
-            reporting_period: Set(dto.period.clone()),
-            activity_code: Set(dto.activity_type.clone()),
-            activity_description: Set(dto.activity_type.clone()),
-            taxable_amount: Set(dto.base_amount),
-            withholding_rate: Set(dto.withholding_rate),
-            withheld_amount: Set(result.withheld_amount),
-            status: Set("Emitido".to_string()),
-            txt_file_path: Set(None),
-            created_by: Set(user_id),
-            created_at: Set(now),
-            updated_at: Set(now),
-        };
-
-        match withholding.insert(db).await {
-            Ok(_) => {
-                insert_success = true;
-                break;
-            }
-            Err(e) => {
-                if matches!(e.sql_err(), Some(sea_orm::SqlErr::UniqueConstraintViolation(_))) {
-                    // Unique constraint violation on arc_number — retry with incremented number
-                    continue;
-                }
-                return Err(e.into());
-            }
-        }
-    }
-
-    if !insert_success {
-        return Err(AppError::Internal(
-            "No se pudo generar un número ARC único después de 3 intentos".to_string(),
-        ));
-    }
+    audit_service::log(
+        db,
+        user_id,
+        AuditAction::Create,
+        AuditEntity::WithholdingIslr,
+        id,
+        None,
+    )
+    .await;
 
     Ok(IslrWithholdingResponse {
         id,
@@ -175,8 +213,8 @@ pub async fn create_islr_withholding(
     })
 }
 
-async fn resolve_supplier_id(
-    db: &DatabaseConnection,
+async fn resolve_supplier_id<C: ConnectionTrait>(
+    txn: &C,
     rif: &str,
     name: &str,
     user_id: Uuid,
@@ -185,7 +223,7 @@ async fn resolve_supplier_id(
 
     let existing = clients::Entity::find()
         .filter(clients::Column::Rif.eq(rif))
-        .one(db)
+        .one(txn)
         .await?;
 
     if let Some(c) = existing {
@@ -210,7 +248,7 @@ async fn resolve_supplier_id(
         created_at: Set(now),
         updated_at: Set(now),
     };
-    client.insert(db).await?;
+    client.insert(txn).await?;
     Ok(id)
 }
 

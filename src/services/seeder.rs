@@ -75,6 +75,8 @@ pub async fn run_seed(db: &DatabaseConnection, config: &SeedConfig) -> Result<()
         ("CREDIT_NOTE", Some("NC-")),
         ("DEBIT_NOTE", Some("ND-")),
         ("DELIVERY_NOTE", Some("GD-")),
+        // ARC: comprobantes de retención ISLR (Decreto 1.808)
+        ("ARC", Some("ARC-")),
     ];
 
     for (seq_type, prefix) in sequence_types {

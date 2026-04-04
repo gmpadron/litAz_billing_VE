@@ -15,6 +15,7 @@ use crate::dto::credit_note_dto::{
 };
 use crate::entities::{credit_notes, invoices};
 use crate::errors::AppError;
+use crate::services::audit_service::{self, AuditAction, AuditEntity};
 use crate::services::invoice_service::parse_tax_rate;
 
 /// Obtiene el próximo número de nota de crédito atómicamente usando SELECT FOR UPDATE.
@@ -183,6 +184,16 @@ pub async fn create_credit_note(
 
     credit_note.insert(&txn).await?;
     txn.commit().await?;
+
+    audit_service::log(
+        db,
+        user_id,
+        AuditAction::Create,
+        AuditEntity::CreditNote,
+        id,
+        None,
+    )
+    .await;
 
     let item_responses: Vec<CreditNoteItemResponse> = note_data
         .items

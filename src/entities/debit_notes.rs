@@ -1,5 +1,6 @@
 //! SeaORM entity for the `debit_notes` table.
-//! Notas de débito — issued to add charges to a previous invoice.
+//! Notas de débito — emitidas para incrementar el monto de una factura previa.
+//! Son INMUTABLES: nunca se anulan. Si se emitió por error, se compensa con una Nota de Crédito.
 
 use rust_decimal::Decimal;
 use sea_orm::entity::prelude::*;
@@ -30,7 +31,7 @@ pub struct Model {
     pub exchange_rate_id: Option<Uuid>,
     #[sea_orm(column_type = "Decimal(Some((18, 6)))", nullable)]
     pub exchange_rate_snapshot: Option<Decimal>,
-    /// Emitida | Anulada
+    /// Emitida — inmutable una vez emitida (PA SNAT/2011/0071)
     pub status: String,
     pub notes: Option<String>,
     pub created_by: Uuid,

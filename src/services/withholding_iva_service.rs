@@ -16,8 +16,9 @@ use crate::dto::withholding_iva_dto::{
     CreateIvaWithholdingRequest, IvaWithholdingFilters, IvaWithholdingListResponse,
     IvaWithholdingResponse,
 };
-use crate::entities::tax_withholdings_iva;
+use crate::entities::{invoices, tax_withholdings_iva};
 use crate::errors::AppError;
+use crate::services::audit_service::{self, AuditAction, AuditEntity};
 
 /// Convierte el porcentaje (75 o 100) al enum de dominio.
 fn parse_withholding_rate(rate: u8) -> Result<IvaWithholdingRate, AppError> {
@@ -146,6 +147,17 @@ pub async fn create_iva_withholding(
     let result = calculate_iva_withholding(dto.iva_amount, rate)
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
+    // Validate that the referenced invoice actually exists
+    invoices::Entity::find_by_id(dto.invoice_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "Factura con ID {} no encontrada. No se puede registrar la retención.",
+                dto.invoice_id
+            ))
+        })?;
+
     // Resolve supplier_id (find or create client for supplier)
     let supplier_id = resolve_supplier_id(db, &dto.supplier_rif, &dto.supplier_name, user_id).await?;
 
@@ -173,6 +185,16 @@ pub async fn create_iva_withholding(
     };
 
     withholding.insert(db).await?;
+
+    audit_service::log(
+        db,
+        user_id,
+        AuditAction::Create,
+        AuditEntity::WithholdingIva,
+        id,
+        None,
+    )
+    .await;
 
     Ok(IvaWithholdingResponse {
         id,

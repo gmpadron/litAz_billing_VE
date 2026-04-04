@@ -21,7 +21,7 @@ pub struct Model {
     /// Delivery address (can differ from fiscal address)
     pub delivery_address: Option<String>,
     pub notes: Option<String>,
-    /// Emitida | Anulada | Entregada
+    /// Emitida | Entregada — nunca se anula, inmutable una vez emitida
     pub status: String,
     pub created_by: Uuid,
     pub created_at: DateTimeWithTimeZone,
