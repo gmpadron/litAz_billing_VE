@@ -395,9 +395,10 @@ async fn resolve_client_id<C: ConnectionTrait>(
             AppError::Validation(format!("RIF del cliente inválido: {}", e))
         })?;
 
-        // Buscar cliente existente por RIF
+        // Buscar cliente existente por RIF dentro de la misma empresa
         let existing = clients::Entity::find()
             .filter(clients::Column::Rif.eq(rif.as_str()))
+            .filter(clients::Column::CompanyProfileId.eq(company_profile_id))
             .one(txn)
             .await?;
 

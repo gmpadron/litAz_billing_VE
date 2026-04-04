@@ -230,10 +230,11 @@ async fn create_client_stub(
         })?;
     }
 
-    // Try to find existing by RIF
+    // Try to find existing by RIF within the same company
     if let Some(rif_val) = rif {
         let existing = clients::Entity::find()
             .filter(clients::Column::Rif.eq(rif_val))
+            .filter(clients::Column::CompanyProfileId.eq(company_profile_id))
             .one(db)
             .await?;
         if let Some(c) = existing {

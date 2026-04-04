@@ -225,6 +225,7 @@ async fn resolve_supplier_id<C: ConnectionTrait>(
 
     let existing = clients::Entity::find()
         .filter(clients::Column::Rif.eq(rif))
+        .filter(clients::Column::CompanyProfileId.eq(company_profile_id))
         .one(txn)
         .await?;
 
