@@ -239,7 +239,7 @@ pub async fn create_invoice(
     }
 
     // Resolver client_id: buscar por RIF o crear un cliente "consumidor final"
-    let client_id = resolve_client_id(&txn, &dto.client_rif, &dto.client_name, &client_address, user_id).await?;
+    let client_id = resolve_client_id(&txn, &dto.client_rif, &dto.client_name, &client_address, user_id, company_profile_id).await?;
 
     // Calcular IGTF si aplica (empresa SPE + moneda divisas)
     let company = company_profiles::Entity::find_by_id(company_profile_id)
@@ -385,6 +385,7 @@ async fn resolve_client_id<C: ConnectionTrait>(
     client_name: &str,
     client_address: &str,
     user_id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<Uuid, AppError> {
     use crate::entities::clients;
 
@@ -422,6 +423,7 @@ async fn resolve_client_id<C: ConnectionTrait>(
             created_by: Set(user_id),
             created_at: Set(now),
             updated_at: Set(now),
+            company_profile_id: Set(company_profile_id),
         };
         client.insert(txn).await?;
         Ok(id)
@@ -444,6 +446,7 @@ async fn resolve_client_id<C: ConnectionTrait>(
             created_by: Set(user_id),
             created_at: Set(now),
             updated_at: Set(now),
+            company_profile_id: Set(company_profile_id),
         };
         client.insert(txn).await?;
         Ok(id)

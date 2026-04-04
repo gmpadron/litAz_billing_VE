@@ -158,7 +158,7 @@ pub async fn create_islr_withholding(
 
     // Resolve supplier_id dentro de la transacción
     let supplier_id =
-        resolve_supplier_id(&txn, &dto.beneficiary_rif, &dto.beneficiary_name, user_id).await?;
+        resolve_supplier_id(&txn, &dto.beneficiary_rif, &dto.beneficiary_name, user_id, company_profile_id).await?;
 
     let id = Uuid::new_v4();
     let now = Utc::now().into();
@@ -219,6 +219,7 @@ async fn resolve_supplier_id<C: ConnectionTrait>(
     rif: &str,
     name: &str,
     user_id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<Uuid, AppError> {
     use crate::entities::clients;
 
@@ -248,6 +249,7 @@ async fn resolve_supplier_id<C: ConnectionTrait>(
         created_by: Set(user_id),
         created_at: Set(now),
         updated_at: Set(now),
+        company_profile_id: Set(company_profile_id),
     };
     client.insert(txn).await?;
     Ok(id)

@@ -12,7 +12,7 @@ use std::sync::Arc;
 use actix_web::body::EitherBody;
 use actix_web::dev::{Payload, Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse};
-use futures_util::future::LocalBoxFuture;
+use std::pin::Pin;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use uuid::Uuid;
 
@@ -99,7 +99,7 @@ where
 {
     type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
-    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
+    type Future = Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
 
     fn poll_ready(
         &self,

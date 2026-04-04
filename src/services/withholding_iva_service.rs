@@ -159,7 +159,7 @@ pub async fn create_iva_withholding(
         })?;
 
     // Resolve supplier_id (find or create client for supplier)
-    let supplier_id = resolve_supplier_id(db, &dto.supplier_rif, &dto.supplier_name, user_id).await?;
+    let supplier_id = resolve_supplier_id(db, &dto.supplier_rif, &dto.supplier_name, user_id, company_profile_id).await?;
 
     let id = Uuid::new_v4();
     let now = Utc::now().into();
@@ -218,6 +218,7 @@ async fn resolve_supplier_id(
     rif: &str,
     name: &str,
     user_id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<Uuid, AppError> {
     use crate::entities::clients;
 
@@ -247,6 +248,7 @@ async fn resolve_supplier_id(
         created_by: Set(user_id),
         created_at: Set(now),
         updated_at: Set(now),
+        company_profile_id: Set(company_profile_id),
     };
     client.insert(db).await?;
     Ok(id)

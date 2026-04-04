@@ -149,7 +149,7 @@ pub async fn create_delivery_note(
             Some(i) => (Some(i.id), i.client_id),
             None => {
                 // Crear un client stub
-                let cid = create_client_stub(db, &dto.recipient_name, dto.recipient_rif.as_deref(), user_id).await?;
+                let cid = create_client_stub(db, &dto.recipient_name, dto.recipient_rif.as_deref(), user_id, company_profile_id).await?;
                 (None, cid)
             }
         }
@@ -219,6 +219,7 @@ async fn create_client_stub(
     name: &str,
     rif: Option<&str>,
     user_id: Uuid,
+    company_profile_id: Uuid,
 ) -> Result<Uuid, AppError> {
     use crate::entities::clients;
 
@@ -257,6 +258,7 @@ async fn create_client_stub(
         created_by: Set(user_id),
         created_at: Set(now),
         updated_at: Set(now),
+        company_profile_id: Set(company_profile_id),
     };
     client.insert(db).await?;
     Ok(id)
