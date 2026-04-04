@@ -12,3 +12,6 @@
 .vscode/
 *.swp
 *.swo
+
+# Context
+SENIAT_legal_context.md
