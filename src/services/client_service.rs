@@ -140,7 +140,10 @@ pub async fn list_clients(
             id: c.id,
             rif: c.rif,
             name: c.razon_social,
+            trade_name: c.nombre_comercial,
             address: c.domicilio_fiscal.unwrap_or_default(),
+            phone: c.telefono,
+            email: c.email,
             is_special_taxpayer: c.es_contribuyente_especial,
             created_at: c.created_at.with_timezone(&Utc),
         })

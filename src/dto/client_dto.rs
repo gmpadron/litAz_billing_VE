@@ -57,7 +57,10 @@ pub struct ClientListResponse {
     pub id: Uuid,
     pub rif: Option<String>,
     pub name: String,
+    pub trade_name: Option<String>,
     pub address: String,
+    pub phone: Option<String>,
+    pub email: Option<String>,
     pub is_special_taxpayer: bool,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
