@@ -10,10 +10,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use actix_web::body::EitherBody;
-use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
-use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, ResponseError, web};
-use actix_web::dev::Payload;
-use actix_web::web::Data;
+use actix_web::dev::{Payload, Service, ServiceRequest, ServiceResponse, Transform};
+use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse};
 use futures_util::future::LocalBoxFuture;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use uuid::Uuid;
@@ -41,7 +39,6 @@ impl actix_web::FromRequest for ActiveCompanyId {
                 AppError::BadRequest(
                     "Header X-Company-ID requerido. Seleccione una empresa.".to_string(),
                 )
-                .error_response()
                 .into()
             });
         ready(result)
@@ -137,7 +134,7 @@ where
                             .to_string(),
                     );
                     let (http_req, _) = req.into_parts();
-                    let resp = HttpResponse::from_error(err.error_response())
+                    let resp = HttpResponse::from_error(err)
                         .map_into_right_body();
                     return Ok(ServiceResponse::new(http_req, resp));
                 }
@@ -159,14 +156,14 @@ where
                         company_uuid
                     ));
                     let (http_req, _) = req.into_parts();
-                    let resp = HttpResponse::from_error(err.error_response())
+                    let resp = HttpResponse::from_error(err)
                         .map_into_right_body();
                     Ok(ServiceResponse::new(http_req, resp))
                 }
                 Err(e) => {
                     let err = AppError::Internal(format!("Error validando empresa: {}", e));
                     let (http_req, _) = req.into_parts();
-                    let resp = HttpResponse::from_error(err.error_response())
+                    let resp = HttpResponse::from_error(err)
                         .map_into_right_body();
                     Ok(ServiceResponse::new(http_req, resp))
                 }
