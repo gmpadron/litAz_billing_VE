@@ -6,7 +6,9 @@ use sea_orm::DatabaseConnection;
 use crate::dto::ApiResponse;
 use crate::dto::debit_note_dto::{CreateDebitNoteRequest, DebitNoteFilters};
 use crate::errors::AppError;
-use crate::middleware::{ActiveCompanyId, AuthenticatedUser, require_accountant};
+use crate::middleware::{
+    ActiveCompanyId, AuthenticatedUser, require_accountant, require_billing_viewer,
+};
 use crate::services::debit_note_service;
 
 /// POST /billingVE/v1/debit-notes — requiere admin o accountant
@@ -27,25 +29,27 @@ async fn create_debit_note(
     Ok(HttpResponse::Created().json(ApiResponse::success(note)))
 }
 
-/// GET /billingVE/v1/debit-notes — cualquier rol autenticado
+/// GET /billingVE/v1/debit-notes — admin/accountant/auditor/infra
 async fn list_debit_notes(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     query: web::Query<DebitNoteFilters>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let result =
         debit_note_service::list_debit_notes(db.get_ref(), query.into_inner(), company.0).await?;
     Ok(HttpResponse::Ok().json(result))
 }
 
-/// GET /billingVE/v1/debit-notes/{id} — cualquier rol autenticado
+/// GET /billingVE/v1/debit-notes/{id} — admin/accountant/auditor/infra
 async fn get_debit_note(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     path: web::Path<uuid::Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let note =
         debit_note_service::get_debit_note(db.get_ref(), path.into_inner(), company.0).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(note)))

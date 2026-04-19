@@ -7,7 +7,9 @@ use crate::dto::ApiResponse;
 use crate::dto::withholding_islr_dto::{CreateIslrWithholdingRequest, IslrWithholdingFilters};
 use crate::dto::withholding_iva_dto::{CreateIvaWithholdingRequest, IvaWithholdingFilters};
 use crate::errors::AppError;
-use crate::middleware::{ActiveCompanyId, AuthenticatedUser, require_accountant};
+use crate::middleware::{
+    ActiveCompanyId, AuthenticatedUser, require_accountant, require_billing_viewer,
+};
 use crate::services::{withholding_islr_service, withholding_iva_service};
 
 // --- IVA Withholding Handlers ---
@@ -30,26 +32,28 @@ async fn create_iva_withholding(
     Ok(HttpResponse::Created().json(ApiResponse::success(withholding)))
 }
 
-/// GET /billingVE/v1/withholdings/iva — cualquier rol autenticado
+/// GET /billingVE/v1/withholdings/iva — admin/accountant/auditor/infra
 async fn list_iva_withholdings(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     query: web::Query<IvaWithholdingFilters>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let result =
         withholding_iva_service::list_iva_withholdings(db.get_ref(), query.into_inner(), company.0)
             .await?;
     Ok(HttpResponse::Ok().json(result))
 }
 
-/// GET /billingVE/v1/withholdings/iva/{id} — cualquier rol autenticado
+/// GET /billingVE/v1/withholdings/iva/{id} — admin/accountant/auditor/infra
 async fn get_iva_withholding(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     path: web::Path<uuid::Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let withholding =
         withholding_iva_service::get_iva_withholding(db.get_ref(), path.into_inner(), company.0)
             .await?;
@@ -76,13 +80,14 @@ async fn create_islr_withholding(
     Ok(HttpResponse::Created().json(ApiResponse::success(withholding)))
 }
 
-/// GET /billingVE/v1/withholdings/islr — cualquier rol autenticado
+/// GET /billingVE/v1/withholdings/islr — admin/accountant/auditor/infra
 async fn list_islr_withholdings(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     query: web::Query<IslrWithholdingFilters>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let result = withholding_islr_service::list_islr_withholdings(
         db.get_ref(),
         query.into_inner(),
@@ -92,13 +97,14 @@ async fn list_islr_withholdings(
     Ok(HttpResponse::Ok().json(result))
 }
 
-/// GET /billingVE/v1/withholdings/islr/{id} — cualquier rol autenticado
+/// GET /billingVE/v1/withholdings/islr/{id} — admin/accountant/auditor/infra
 async fn get_islr_withholding(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     path: web::Path<uuid::Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let withholding = withholding_islr_service::get_islr_withholding(
         db.get_ref(),
         path.into_inner(),

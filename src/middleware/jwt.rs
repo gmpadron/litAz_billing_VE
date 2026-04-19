@@ -5,7 +5,7 @@
 //! {
 //!   "sub": "user-uuid",
 //!   "email": "user@example.com",
-//!   "roles": ["admin"],
+//!   "roles": ["ADMIN", "ACCOUNTANT"],
 //!   "permissions": ["invoices:create", "invoices:read"],
 //!   "sessionId": "session-uuid",
 //!   "deviceId": "fingerprint",

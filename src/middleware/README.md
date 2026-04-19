@@ -91,14 +91,17 @@ Los usuarios sin ninguno de estos roles tienen acceso de solo lectura (cualquier
 
 ## Modo desarrollo
 
-En builds de debug, si no hay un JWT válido, los handlers pueden usar el header `X-User-Id` como fallback. Si tampoco está presente, se usa el UUID `11111111-1111-1111-1111-111111111111` para facilitar pruebas locales.
+Para pruebas locales, obtén un JWT real haciendo login en `litAz_auth_service`
+(`POST /api/v1/auth/login`) y usa el access token en cada request:
 
 ```bash
-# Prueba sin token JWT (solo en cargo run / debug)
-curl -H "X-User-Id: mi-uuid" http://localhost:8080/billingVE/v1/invoices
+curl -H "Authorization: Bearer <access_token>" \
+     -H "X-Company-ID: <company-uuid>" \
+     http://localhost:8080/billingVE/v1/invoices
 ```
 
-Este fallback **no existe** en builds de release.
+No hay bypass de autenticación: todos los entornos (dev, staging, prod) requieren
+JWT válido.
 
 ## Configuración JWT
 

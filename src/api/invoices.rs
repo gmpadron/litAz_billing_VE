@@ -8,7 +8,9 @@ use sea_orm::DatabaseConnection;
 use crate::dto::ApiResponse;
 use crate::dto::invoice_dto::{CreateInvoiceRequest, InvoiceFilters};
 use crate::errors::AppError;
-use crate::middleware::{ActiveCompanyId, AuthenticatedUser, require_accountant};
+use crate::middleware::{
+    ActiveCompanyId, AuthenticatedUser, require_accountant, require_billing_viewer,
+};
 use crate::services::invoice_service;
 
 async fn create_invoice(
@@ -25,22 +27,24 @@ async fn create_invoice(
 }
 
 async fn list_invoices(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     query: web::Query<InvoiceFilters>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let result =
         invoice_service::list_invoices(db.get_ref(), query.into_inner(), company.0).await?;
     Ok(HttpResponse::Ok().json(result))
 }
 
 async fn get_invoice(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     path: web::Path<uuid::Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let invoice =
         invoice_service::get_invoice(db.get_ref(), path.into_inner(), company.0).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(invoice)))

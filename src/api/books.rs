@@ -8,16 +8,19 @@ use crate::dto::book_dto::{
     BookFilters, CreatePurchaseBookEntryRequest, CreateSalesBookEntryRequest,
 };
 use crate::errors::AppError;
-use crate::middleware::{ActiveCompanyId, AuthenticatedUser, require_accountant};
+use crate::middleware::{
+    ActiveCompanyId, AuthenticatedUser, require_accountant, require_billing_viewer,
+};
 use crate::services::book_service;
 
-/// GET /billingVE/v1/books/purchases?period=2026-03 — cualquier rol autenticado
+/// GET /billingVE/v1/books/purchases?period=2026-03 — admin/accountant/auditor/infra
 async fn get_purchase_book(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     query: web::Query<BookFilters>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let result =
         book_service::get_purchase_book(db.get_ref(), query.into_inner(), company.0).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(result)))
@@ -41,13 +44,14 @@ async fn create_purchase_book_entry(
     Ok(HttpResponse::Created().json(ApiResponse::success(entry)))
 }
 
-/// GET /billingVE/v1/books/sales?period=2026-03 — cualquier rol autenticado
+/// GET /billingVE/v1/books/sales?period=2026-03 — admin/accountant/auditor/infra
 async fn get_sales_book(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     query: web::Query<BookFilters>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let result = book_service::get_sales_book(db.get_ref(), query.into_inner(), company.0).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(result)))
 }

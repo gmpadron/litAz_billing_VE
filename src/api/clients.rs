@@ -6,7 +6,9 @@ use sea_orm::DatabaseConnection;
 use crate::dto::ApiResponse;
 use crate::dto::client_dto::{ClientFilters, CreateClientRequest, UpdateClientRequest};
 use crate::errors::AppError;
-use crate::middleware::{ActiveCompanyId, AuthenticatedUser, require_accountant};
+use crate::middleware::{
+    ActiveCompanyId, AuthenticatedUser, require_accountant, require_billing_viewer,
+};
 use crate::services::client_service;
 
 async fn create_client(
@@ -22,22 +24,24 @@ async fn create_client(
 }
 
 async fn list_clients(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     query: web::Query<ClientFilters>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let result =
         client_service::list_clients(db.get_ref(), query.into_inner(), company.0).await?;
     Ok(HttpResponse::Ok().json(result))
 }
 
 async fn get_client(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     path: web::Path<uuid::Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let client =
         client_service::get_client(db.get_ref(), path.into_inner(), company.0).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(client)))

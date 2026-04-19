@@ -9,7 +9,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::errors::AppError;
-use crate::middleware::{ActiveCompanyId, AuthenticatedUser};
+use crate::middleware::{ActiveCompanyId, AuthenticatedUser, require_billing_viewer};
 use crate::services::{
     company_service,
     export_service::{
@@ -50,11 +50,12 @@ pub struct BookExportQuery {
 ///
 /// Descarga el PDF de una factura.
 async fn get_invoice_pdf(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     use crate::services::invoice_service;
     use crate::services::pdf_service::{
         CompanyHeader, InvoicePdfData, PdfLineItem, generate_invoice_pdf,
@@ -139,11 +140,12 @@ async fn get_invoice_pdf(
 ///
 /// Descarga el PDF de una nota de crédito.
 async fn get_credit_note_pdf(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     use crate::entities::credit_notes;
     use crate::services::credit_note_service;
     use crate::services::pdf_service::{
@@ -229,11 +231,12 @@ async fn get_credit_note_pdf(
 ///
 /// Descarga el PDF de una nota de débito.
 async fn get_debit_note_pdf(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     use crate::entities::debit_notes;
     use crate::services::debit_note_service;
     use crate::services::pdf_service::{
@@ -319,11 +322,12 @@ async fn get_debit_note_pdf(
 ///
 /// Descarga el comprobante de retención IVA en PDF.
 async fn get_iva_withholding_voucher_pdf(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     use crate::services::invoice_service;
     use crate::services::pdf_service::{IvaWithholdingVoucherPdfData, generate_iva_withholding_voucher_pdf};
     use crate::services::withholding_iva_service;
@@ -367,11 +371,12 @@ async fn get_iva_withholding_voucher_pdf(
 ///
 /// Descarga el comprobante ARC de retención ISLR en PDF.
 async fn get_islr_arc_pdf(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     path: web::Path<Uuid>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     use crate::services::invoice_service;
     use crate::services::pdf_service::{IslrArcPdfData, generate_islr_arc_pdf};
     use crate::services::withholding_islr_service;
@@ -418,11 +423,12 @@ async fn get_islr_arc_pdf(
 /// El periodo debe estar en formato "YYYYMM-QQ" (ej: "202603-01" para primera quincena,
 /// "202603-02" para la segunda quincena de marzo 2026).
 async fn get_iva_withholding_xml(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     query: web::Query<IvaXmlQuery>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     use crate::services::invoice_service;
     use crate::services::withholding_iva_service;
 
@@ -478,11 +484,12 @@ async fn get_iva_withholding_xml(
 ///
 /// Exporta las retenciones ISLR del periodo como archivo TXT para el SENIAT.
 async fn get_islr_withholding_txt(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     query: web::Query<IslrTxtQuery>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     use crate::services::invoice_service;
     use crate::services::withholding_islr_service;
 
@@ -535,11 +542,12 @@ async fn get_islr_withholding_txt(
 ///
 /// Exporta el Libro de Compras del periodo como CSV.
 async fn get_purchase_book_export(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     query: web::Query<BookExportQuery>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     use crate::dto::book_dto::BookFilters;
     use crate::services::book_service;
 
@@ -599,11 +607,12 @@ async fn get_purchase_book_export(
 ///
 /// Exporta el Libro de Ventas del periodo como CSV.
 async fn get_sales_book_export(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     query: web::Query<BookExportQuery>,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     use crate::dto::book_dto::BookFilters;
     use crate::services::book_service;
 

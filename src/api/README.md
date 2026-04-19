@@ -18,7 +18,7 @@ Los handlers son deliberadamente delgados: deserializan el request, invocan el s
 | `books.rs`          | `/books`                | Libros de compras y ventas.                          |
 | `withholdings.rs`   | `/withholdings`         | Retenciones IVA e ISLR.                              |
 | `reports.rs`        | `/reports`              | Exportaciones PDF, XML y TXT.                        |
-| `helpers.rs`        | —                       | `get_active_company_id`, `extract_user_id`.          |
+| `helpers.rs`        | —                       | (vacío — usa el extractor `AuthenticatedUser`).      |
 
 ## Rutas
 
@@ -105,15 +105,13 @@ Los handlers son deliberadamente delgados: deserializan el request, invocan el s
 
 ## helpers.rs
 
-### `get_active_company_id(db) -> Result<Uuid, AppError>`
+Actualmente vacío. Los datos transversales se obtienen mediante extractores de Actix:
 
-Busca el primer `company_profiles` con `is_active = true`. Si no existe, retorna `AppError::BadRequest` con el mensaje `"No hay perfil de empresa activo"`.
-
-Todos los handlers de creación de documentos llaman a esta función para asociar el documento al perfil fiscal vigente.
-
-### `extract_user_id(req) -> Result<Uuid, AppError>`
-
-Extrae el `sub` (user UUID) del JWT en las extensions del request. En builds de debug, acepta el header `X-User-Id` como fallback.
+- **Usuario autenticado** → parámetro `AuthenticatedUser` (de `middleware/auth.rs`).
+  Falla con 401 si no hay JWT válido.
+- **Empresa activa** → parámetro `ActiveCompanyId` (de `middleware/company.rs`).
+  Falla con 400 si el header `X-Company-ID` no está presente o el usuario no
+  tiene acceso a esa empresa.
 
 ## Patrón de un handler
 

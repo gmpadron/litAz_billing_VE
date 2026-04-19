@@ -7,24 +7,26 @@ use uuid::Uuid;
 use crate::dto::ApiResponse;
 use crate::dto::company_dto::{CreateCompanyRequest, UpdateCompanyRequest};
 use crate::errors::AppError;
-use crate::middleware::{AuthenticatedUser, require_admin};
+use crate::middleware::{AuthenticatedUser, require_admin, require_billing_viewer};
 use crate::services::company_service;
 
-/// GET /billingVE/v1/company — lista todas las empresas
+/// GET /billingVE/v1/company — admin/accountant/auditor/infra
 async fn list_companies(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let companies = company_service::list_companies(db.get_ref()).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(companies)))
 }
 
-/// GET /billingVE/v1/company/{id} — obtiene una empresa por ID
+/// GET /billingVE/v1/company/{id} — admin/accountant/auditor/infra
 async fn get_company(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     db: web::Data<DatabaseConnection>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let company = company_service::get_company_by_id(db.get_ref(), path.into_inner()).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(company)))
 }

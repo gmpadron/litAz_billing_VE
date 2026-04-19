@@ -6,7 +6,9 @@ use sea_orm::DatabaseConnection;
 use crate::dto::ApiResponse;
 use crate::dto::delivery_note_dto::{CreateDeliveryNoteRequest, DeliveryNoteFilters};
 use crate::errors::AppError;
-use crate::middleware::{ActiveCompanyId, AuthenticatedUser, require_accountant};
+use crate::middleware::{
+    ActiveCompanyId, AuthenticatedUser, require_accountant, require_billing_viewer,
+};
 use crate::services::delivery_note_service;
 
 /// POST /billingVE/v1/delivery-notes — requiere admin o accountant
@@ -27,26 +29,28 @@ async fn create_delivery_note(
     Ok(HttpResponse::Created().json(ApiResponse::success(note)))
 }
 
-/// GET /billingVE/v1/delivery-notes — cualquier rol autenticado
+/// GET /billingVE/v1/delivery-notes — admin/accountant/auditor/infra
 async fn list_delivery_notes(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     query: web::Query<DeliveryNoteFilters>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let result =
         delivery_note_service::list_delivery_notes(db.get_ref(), query.into_inner(), company.0)
             .await?;
     Ok(HttpResponse::Ok().json(result))
 }
 
-/// GET /billingVE/v1/delivery-notes/{id} — cualquier rol autenticado
+/// GET /billingVE/v1/delivery-notes/{id} — admin/accountant/auditor/infra
 async fn get_delivery_note(
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     company: ActiveCompanyId,
     db: web::Data<DatabaseConnection>,
     path: web::Path<uuid::Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    require_billing_viewer(&user)?;
     let note =
         delivery_note_service::get_delivery_note(db.get_ref(), path.into_inner(), company.0)
             .await?;

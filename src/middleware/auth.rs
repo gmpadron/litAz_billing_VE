@@ -80,38 +80,6 @@ where
                 return Ok(res);
             }
 
-            // En debug, permitir bypass con header X-User-Id para pruebas locales
-            #[cfg(debug_assertions)]
-            {
-                if req.headers().get("X-User-Id").is_some()
-                    && req.headers().get("Authorization").is_none()
-                {
-                    // Modo desarrollo: crear claims sintéticos desde el header
-                    if let Some(user_id_str) = req
-                        .headers()
-                        .get("X-User-Id")
-                        .and_then(|v| v.to_str().ok())
-                    {
-                        let dev_claims = JwtClaims {
-                            sub: user_id_str.to_string(),
-                            email: "dev@localhost".to_string(),
-                            roles: vec!["admin".to_string()],
-                            permissions: vec!["*:*".to_string()],
-                            session_id: None,
-                            device_id: None,
-                            two_factor_verified: false,
-                            iat: 0,
-                            exp: 0,
-                            iss: None,
-                            aud: None,
-                        };
-                        req.extensions_mut().insert(dev_claims);
-                        let res = service.call(req).await?.map_into_left_body();
-                        return Ok(res);
-                    }
-                }
-            }
-
             // Extraer y validar token
             let token = match extract_bearer_token(req.request()) {
                 Some(t) => t,
@@ -163,7 +131,7 @@ where
 
 /// Usuario autenticado extraído del JWT validado.
 ///
-/// Se usa como parámetro de handler en lugar de `extract_user_id()`:
+/// Se usa como parámetro de handler:
 /// ```rust,ignore
 /// async fn create_invoice(
 ///     user: AuthenticatedUser,
@@ -278,6 +246,20 @@ pub fn require_admin(user: &AuthenticatedUser) -> Result<(), crate::errors::AppE
     } else {
         Err(crate::errors::AppError::Forbidden(
             "Acceso denegado. Se requiere rol 'ADMIN'.".to_string(),
+        ))
+    }
+}
+
+/// Guard que verifica que el usuario tenga rol con permiso de lectura sobre billing:
+/// `ADMIN`, `ACCOUNTANT`, `INFRA` o `AUDITOR`.
+/// Se usa para todos los endpoints GET del módulo billing
+/// (facturas, notas, retenciones, libros, reportes, datos de la empresa).
+pub fn require_billing_viewer(user: &AuthenticatedUser) -> Result<(), crate::errors::AppError> {
+    if user.has_any_role(&["ADMIN", "ACCOUNTANT", "INFRA", "AUDITOR"]) {
+        Ok(())
+    } else {
+        Err(crate::errors::AppError::Forbidden(
+            "Acceso denegado. Se requiere rol 'ADMIN', 'ACCOUNTANT', 'AUDITOR' o 'INFRA'.".to_string(),
         ))
     }
 }
