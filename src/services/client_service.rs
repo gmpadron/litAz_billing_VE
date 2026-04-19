@@ -1,9 +1,10 @@
 //! Servicio de clientes: CRUD real contra base de datos.
 
 use chrono::Utc;
+use sea_orm::sea_query::Expr;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, Set,
+    ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, Set,
 };
 use uuid::Uuid;
 
@@ -128,12 +129,23 @@ pub async fn list_clients(
         .order_by_desc(clients::Column::CreatedAt);
 
     if let Some(ref search) = filters.search {
-        use sea_orm::Condition;
-        query = query.filter(
-            Condition::any()
-                .add(clients::Column::RazonSocial.contains(search))
-                .add(clients::Column::Rif.contains(search)),
-        );
+        let trimmed = search.trim();
+        if !trimmed.is_empty() {
+            // Búsqueda insensible a mayúsculas y acentos:
+            // unaccent(lower(col)) ILIKE '%' || unaccent(lower($1)) || '%'
+            let pattern = format!("%{}%", trimmed);
+            query = query.filter(
+                Condition::any()
+                    .add(Expr::cust_with_values(
+                        "unaccent(lower(razon_social)) ILIKE unaccent(lower($1))",
+                        [pattern.clone()],
+                    ))
+                    .add(Expr::cust_with_values(
+                        "unaccent(lower(COALESCE(rif, ''))) ILIKE unaccent(lower($1))",
+                        [pattern],
+                    )),
+            );
+        }
     }
 
     let total = query.clone().count(db).await?;
